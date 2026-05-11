@@ -16,7 +16,7 @@ import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle
 } from 'lucide-react';
-import { WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
+import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
@@ -38,19 +38,35 @@ type PartStatus = 'available' | 'on_order' | 'missing';
 
 export default function WorkOrderPage({ params }: { params: Promise<{ id: string; woId: string }> }) {
   const { id, woId } = use(params);
-  const drone = drones.find(d => d.id === id);
-  const baseWo = workOrders.find(w => w.id === woId);
-  if (!drone || !baseWo) notFound();
+  const staticWo = workOrders.find(w => w.id === woId);
+  const staticDrone = drones.find(d => d.id === id);
 
+  const [baseWo, setBaseWo] = useState<WorkOrder | null>(staticWo ?? null);
+  const [drone, setDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<WorkOrder>>({});
   const [partStatusEdits, setPartStatusEdits] = useState<Record<number, PartStatus>>({});
+  const [ready, setReady] = useState(!!(staticWo && staticDrone));
 
   useEffect(() => {
     const saved = localStorage.getItem(`workorder-edits-${woId}`);
     if (saved) setEdits(JSON.parse(saved));
     const savedParts = localStorage.getItem(`workorder-parts-${woId}`);
     if (savedParts) setPartStatusEdits(JSON.parse(savedParts));
-  }, [woId]);
+    if (!staticWo) {
+      const userWOs: WorkOrder[] = JSON.parse(localStorage.getItem('user-workorders') || '[]');
+      const found = userWOs.find(w => w.id === woId);
+      if (found) setBaseWo(found);
+    }
+    if (!staticDrone) {
+      const userDrones: Drone[] = JSON.parse(localStorage.getItem('user-drones') || '[]');
+      const found = userDrones.find(d => d.id === id);
+      if (found) setDrone(found);
+    }
+    setReady(true);
+  }, [woId, id]);
+
+  if (!ready) return <div className="p-6 text-gray-500 text-sm">Loading...</div>;
+  if (!baseWo || !drone) return notFound();
 
   const wo: WorkOrder = { ...baseWo, ...edits };
 

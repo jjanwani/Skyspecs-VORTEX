@@ -2,14 +2,16 @@
 
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import Header from '@/components/layout/Header';
-import { inventoryItems } from '@/lib/data/inventory';
+import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
 import { InventoryCategory, InventoryItem, PIPOStatus } from '@/lib/types';
 import { getPIPOStatusColor, getPIPOStatusLabel, formatDate, cn } from '@/lib/utils';
 import {
   Search, Package, AlertTriangle, Filter, ChevronUp, ChevronDown,
-  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check
+  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check, Plus
 } from 'lucide-react';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
+import AddInventoryModal from '@/components/modals/AddInventoryModal';
+import { getUserInventory } from '@/lib/userDataStore';
 
 type SortKey = 'name' | 'category' | 'currentCount' | 'minQty' | 'usageRatePerWeek' | 'discrepancy';
 type SortDir = 'asc' | 'desc';
@@ -61,6 +63,8 @@ export default function InventoryPage() {
   const [editingPurchaseLink, setEditingPurchaseLink] = useState<string | null>(null);
   const [editPurchaseLinkVal, setEditPurchaseLinkVal] = useState('');
   const [itemOverrides, setItemOverrides] = useState<Record<string, ItemOverrides>>({});
+  const [userInventory, setUserInventory] = useState<InventoryItem[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     const savedMin = localStorage.getItem('inventory-min-qty');
@@ -69,7 +73,10 @@ export default function InventoryPage() {
     if (savedLinks) setPurchaseLinks(JSON.parse(savedLinks));
     const savedOverrides = localStorage.getItem('inventory-overrides');
     if (savedOverrides) setItemOverrides(JSON.parse(savedOverrides));
+    setUserInventory(getUserInventory());
   }, []);
+
+  const inventoryItems = useMemo(() => [...baseInventoryItems, ...userInventory], [userInventory]);
 
   const getEffectiveMinQty = (id: string, defaultMin: number) =>
     minQtyOverrides[id] ?? defaultMin;
@@ -192,9 +199,17 @@ export default function InventoryPage() {
 
         {/* Filters */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-xs text-gray-400 font-medium">Filter & Search</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs text-gray-400 font-medium">Filter & Search</span>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Item
+            </button>
           </div>
           <div className="flex gap-3 flex-col sm:flex-row">
             <div className="relative flex-1">
@@ -537,6 +552,16 @@ export default function InventoryPage() {
         </div>
         <p className="text-xs text-gray-600 text-right">{filtered.length} of {inventoryItems.length} items · Click a row to expand · Hover any field to edit</p>
       </div>
+
+      {showAddModal && (
+        <AddInventoryModal
+          onAdd={newItem => {
+            setUserInventory(prev => [...prev, newItem]);
+            setShowAddModal(false);
+          }}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,26 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { workOrders } from '@/lib/data/workorders';
-import { WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/lib/types';
+import { workOrders as baseWorkOrders } from '@/lib/data/workorders';
+import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/lib/types';
 import {
   getWorkOrderStatusColor, getWorkOrderStatusLabel,
   getWorkOrderTypeColor, getWorkOrderTypeLabel,
   getPriorityColor, formatDate, cn
 } from '@/lib/utils';
 import Link from 'next/link';
-import { Search, ClipboardList, Clock, User, ExternalLink, Filter } from 'lucide-react';
-
-type FilterType = WorkOrderStatus | WorkOrderType | WorkOrderPriority | 'all';
+import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus } from 'lucide-react';
+import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
+import { getUserWorkOrders } from '@/lib/userDataStore';
 
 export default function WorkOrdersPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<WorkOrderType | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<WorkOrderPriority | 'all'>('all');
+  const [userWorkOrders, setUserWorkOrders] = useState<WorkOrder[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const filtered = workOrders.filter(wo => {
+  useEffect(() => {
+    setUserWorkOrders(getUserWorkOrders());
+  }, []);
+
+  const allWorkOrders = [...baseWorkOrders, ...userWorkOrders];
+
+  const filtered = allWorkOrders.filter(wo => {
     const matchSearch = !search || wo.title.toLowerCase().includes(search.toLowerCase()) ||
       wo.droneName.toLowerCase().includes(search.toLowerCase()) ||
       wo.assignedTech.toLowerCase().includes(search.toLowerCase()) ||
@@ -44,10 +52,10 @@ export default function WorkOrdersPage() {
         {/* Stats Row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: 'Open', count: workOrders.filter(w => w.status === 'open').length, color: 'text-blue-400' },
-            { label: 'In Progress', count: workOrders.filter(w => w.status === 'in_progress').length, color: 'text-amber-400' },
-            { label: 'Critical', count: workOrders.filter(w => w.priority === 'critical').length, color: 'text-red-400' },
-            { label: 'Total', count: workOrders.length, color: 'text-white' },
+            { label: 'Open', count: allWorkOrders.filter(w => w.status === 'open').length, color: 'text-blue-400' },
+            { label: 'In Progress', count: allWorkOrders.filter(w => w.status === 'in_progress').length, color: 'text-amber-400' },
+            { label: 'Critical', count: allWorkOrders.filter(w => w.priority === 'critical').length, color: 'text-red-400' },
+            { label: 'Total', count: allWorkOrders.length, color: 'text-white' },
           ].map(({ label, count, color }) => (
             <div key={label} className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-center">
               <p className={`text-2xl font-bold ${color}`}>{count}</p>
@@ -58,9 +66,17 @@ export default function WorkOrdersPage() {
 
         {/* Filters */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-xs text-gray-400 font-medium">Filters</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs text-gray-400 font-medium">Filters</span>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Work Order
+            </button>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -188,8 +204,18 @@ export default function WorkOrdersPage() {
             ))
           )}
         </div>
-        <p className="text-xs text-gray-600 text-right">{sortedFiltered.length} of {workOrders.length} work orders</p>
+        <p className="text-xs text-gray-600 text-right">{sortedFiltered.length} of {allWorkOrders.length} work orders</p>
       </div>
+
+      {showAddModal && (
+        <AddWorkOrderModal
+          onAdd={newWO => {
+            setUserWorkOrders(prev => [...prev, newWO]);
+            setShowAddModal(false);
+          }}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }

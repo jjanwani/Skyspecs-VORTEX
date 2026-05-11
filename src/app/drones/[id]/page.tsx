@@ -31,15 +31,28 @@ const STATUS_OPTIONS = [
 
 export default function DroneDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const baseDrone = drones.find(d => d.id === id);
-  if (!baseDrone) notFound();
+  const staticDrone = drones.find(d => d.id === id);
 
+  const [baseDrone, setBaseDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<Drone>>({});
+  const [userWOs, setUserWOs] = useState<typeof workOrders>([]);
+  const [ready, setReady] = useState(!!staticDrone);
 
   useEffect(() => {
     const saved = localStorage.getItem(`drone-edits-${id}`);
     if (saved) setEdits(JSON.parse(saved));
+    if (!staticDrone) {
+      const storedDrones: Drone[] = JSON.parse(localStorage.getItem('user-drones') || '[]');
+      const found = storedDrones.find(d => d.id === id);
+      if (found) setBaseDrone(found);
+    }
+    const storedWOs = JSON.parse(localStorage.getItem('user-workorders') || '[]');
+    setUserWOs(storedWOs);
+    setReady(true);
   }, [id]);
+
+  if (!ready) return <div className="p-6 text-gray-500 text-sm">Loading...</div>;
+  if (!baseDrone) return notFound();
 
   const drone: Drone = { ...baseDrone, ...edits };
 
@@ -51,7 +64,8 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
     });
   };
 
-  const droneWOs = workOrders.filter(w => w.droneId === drone.id);
+  const allWOs = [...workOrders, ...userWOs];
+  const droneWOs = allWOs.filter(w => w.droneId === drone.id);
   const openWOs = droneWOs.filter(w => w.status !== 'completed');
 
   return (

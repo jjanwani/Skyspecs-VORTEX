@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { drones } from '@/lib/data/drones';
+import { drones as baseDrones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
-import { DroneStatus } from '@/lib/types';
+import { Drone, DroneStatus } from '@/lib/types';
 import { getDroneStatusColor, getDroneStatusLabel, cn } from '@/lib/utils';
 import Link from 'next/link';
-import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList } from 'lucide-react';
+import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus } from 'lucide-react';
+import AddDroneModal from '@/components/modals/AddDroneModal';
+import { getUserDrones } from '@/lib/userDataStore';
 
 const ALL_STATUSES: DroneStatus[] = ['field', 'wip_redress', 'returning_field', 'flight_status', 'rca', 'ready_for_deployment', 'in_maintenance'];
 
@@ -20,8 +22,17 @@ function ComplianceDot({ ok }: { ok: boolean }) {
 export default function DronesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DroneStatus | 'all'>('all');
+  const [userDrones, setUserDrones] = useState<Drone[]>([]);
+  const [showAddModal, setShowAddModal] = useState(false);
 
-  const filtered = drones.filter(d => {
+  useEffect(() => {
+    setUserDrones(getUserDrones());
+  }, []);
+
+  const allDrones = [...baseDrones, ...userDrones];
+  const userDroneIds = new Set(userDrones.map(d => d.id));
+
+  const filtered = allDrones.filter(d => {
     const matchSearch = !search || d.name.toLowerCase().includes(search.toLowerCase()) ||
       (d.assignedTech?.toLowerCase().includes(search.toLowerCase())) ||
       (d.deploymentRegion?.toLowerCase().includes(search.toLowerCase()));
@@ -49,15 +60,15 @@ export default function DronesPage() {
               className="w-full pl-9 pr-4 py-2 bg-gray-900 border border-gray-800 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
             />
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap flex-1">
             <button
               onClick={() => setStatusFilter('all')}
               className={cn('px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors',
                 statusFilter === 'all' ? 'bg-blue-600 border-blue-600 text-white' : 'border-gray-700 text-gray-400 hover:text-white hover:border-gray-600'
               )}
-            >All ({drones.length})</button>
+            >All ({allDrones.length})</button>
             {ALL_STATUSES.map(s => {
-              const count = drones.filter(d => d.status === s).length;
+              const count = allDrones.filter(d => d.status === s).length;
               if (!count) return null;
               return (
                 <button
@@ -72,12 +83,19 @@ export default function DronesPage() {
               );
             })}
           </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors whitespace-nowrap"
+          >
+            <Plus className="w-3.5 h-3.5" /> Add Drone
+          </button>
         </div>
 
         {/* Drone Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map(drone => {
             const openWOs = getOpenWOs(drone.id);
+            const isUserCreated = userDroneIds.has(drone.id);
             return (
               <Link
                 key={drone.id}
@@ -90,7 +108,12 @@ export default function DronesPage() {
                       <Plane className="w-4 h-4 text-blue-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{drone.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-bold text-white group-hover:text-blue-400 transition-colors">{drone.name}</p>
+                        {isUserCreated && (
+                          <span className="text-xs px-1.5 py-0.5 rounded border bg-violet-500/10 border-violet-500/20 text-violet-400">Manual</span>
+                        )}
+                      </div>
                       <p className="text-xs text-gray-500">{drone.version}</p>
                     </div>
                   </div>
@@ -163,6 +186,16 @@ export default function DronesPage() {
           </div>
         )}
       </div>
+
+      {showAddModal && (
+        <AddDroneModal
+          onAdd={newDrone => {
+            setUserDrones(prev => [...prev, newDrone]);
+            setShowAddModal(false);
+          }}
+          onClose={() => setShowAddModal(false)}
+        />
+      )}
     </div>
   );
 }
