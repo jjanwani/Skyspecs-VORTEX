@@ -1,30 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { Search, BookOpen, FileText, Video, Image, ExternalLink, FolderOpen, ChevronRight, Star } from 'lucide-react';
+import { Search, BookOpen, FileText, Video, Image, ExternalLink, FolderOpen, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type DocCategory = 'all' | 'build_guides' | 'diagrams' | 'regulatory' | 'maintenance' | 'rca_reports';
 
 const DOCS = [
-  { id: 'D-001', title: 'V2 Block 2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v2.3', lastUpdated: '2024-01-10', starred: true, description: 'Complete build instructions for V2 Block 2 drone assembly. Includes corestack, gimbal, fuselage, and payload sections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-002', title: 'V2 HD Air G2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v1.2', lastUpdated: '2024-01-05', starred: true, description: 'Build guide for the V2 HD Air G2 configuration with gimbal specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-003', title: 'Corestack Assembly Diagram', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.1', lastUpdated: '2023-12-20', starred: false, description: 'Wiring diagram and component placement for corestack assembly. Includes Xavier, SSD, and coreboard layout.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-004', title: 'Gimbal Wiring Harness', category: 'diagrams' as DocCategory, type: 'image', version: 'v3.0', lastUpdated: '2024-01-08', starred: false, description: 'Complete wiring harness diagram for gimbal assembly including camera, lidar, and motor connections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-005', title: 'ERN-660 Coreboard Replacement', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-11-15', starred: true, description: 'Engineering Release Notice for coreboard replacement procedure. Applies to all V2 drones.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-006', title: 'ERN-700 Hinge Replacement FR/FL', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.1', lastUpdated: '2023-12-01', starred: true, description: 'Engineering Release Notice for front hinge assembly replacement. Required for V2 HD Air G2 units.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-007', title: 'ECN-199 NDAA Compliance Upgrade', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-12', starred: true, description: 'NDAA compliance upgrade procedure for all deployed units. Field-applicable with standard tools.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-008', title: 'FAA Registration Process', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.3', lastUpdated: '2023-10-20', starred: false, description: 'Step-by-step FAA registration procedure for new drone units entering service.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-009', title: 'ECT-52 (7075) Compliance Checklist', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-09-15', starred: false, description: 'Compliance checklist and verification steps for ECT-52 standard.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-010', title: 'Motor Troubleshooting Guide', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.2', lastUpdated: '2024-01-03', starred: false, description: 'Diagnosis and replacement procedures for PM4315 and PM4310 motors. Includes ESC diagnostics.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-011', title: 'RCA Template - Crash Investigation', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.5', lastUpdated: '2023-12-10', starred: false, description: 'Standard template for root cause analysis of crash incidents. Covers flight log analysis, hardware inspection, and corrective actions.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-012', title: 'RCA Report - FS-091 Motor Failure', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2024-01-18', starred: false, description: 'Root cause analysis for FS-091 crash. Motor 2 overcurrent event confirmed. ESC replaced.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-013', title: 'Payload System Assembly', category: 'build_guides' as DocCategory, type: 'video', version: 'v1.0', lastUpdated: '2023-11-28', starred: false, description: 'Video walkthrough of payload board base and cover installation, including radio shield placement.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-014', title: 'TBS Backpack Firmware Update', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-14', starred: false, description: 'Step-by-step TBS backpack firmware update procedure. Required for all units prior to deployment.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-015', title: 'Fuselage Assembly - Bottom Plate', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.0', lastUpdated: '2023-12-05', starred: false, description: 'Diagram showing bottom plate assembly sequence, standoff positions, and torque specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-016', title: 'Pre-Flight Checklist', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v3.1', lastUpdated: '2024-01-15', starred: true, description: 'Complete pre-flight inspection and verification checklist for all V2 drone variants.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-001', title: 'V2 Block 2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v2.3', lastUpdated: '2024-01-10', description: 'Complete build instructions for V2 Block 2 drone assembly. Includes corestack, gimbal, fuselage, and payload sections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-002', title: 'V2 HD Air G2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v1.2', lastUpdated: '2024-01-05', description: 'Build guide for the V2 HD Air G2 configuration with gimbal specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-003', title: 'Corestack Assembly Diagram', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.1', lastUpdated: '2023-12-20', description: 'Wiring diagram and component placement for corestack assembly. Includes Xavier, SSD, and coreboard layout.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-004', title: 'Gimbal Wiring Harness', category: 'diagrams' as DocCategory, type: 'image', version: 'v3.0', lastUpdated: '2024-01-08', description: 'Complete wiring harness diagram for gimbal assembly including camera, lidar, and motor connections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-005', title: 'ERN-660 Coreboard Replacement', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-11-15', description: 'Engineering Release Notice for coreboard replacement procedure. Applies to all V2 drones.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-006', title: 'ERN-700 Hinge Replacement FR/FL', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.1', lastUpdated: '2023-12-01', description: 'Engineering Release Notice for front hinge assembly replacement. Required for V2 HD Air G2 units.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-007', title: 'ECN-199 NDAA Compliance Upgrade', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-12', description: 'NDAA compliance upgrade procedure for all deployed units. Field-applicable with standard tools.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-008', title: 'FAA Registration Process', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.3', lastUpdated: '2023-10-20', description: 'Step-by-step FAA registration procedure for new drone units entering service.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-009', title: 'ECT-52 (7075) Compliance Checklist', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-09-15', description: 'Compliance checklist and verification steps for ECT-52 standard.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-010', title: 'Motor Troubleshooting Guide', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.2', lastUpdated: '2024-01-03', description: 'Diagnosis and replacement procedures for PM4315 and PM4310 motors. Includes ESC diagnostics.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-011', title: 'RCA Template - Crash Investigation', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.5', lastUpdated: '2023-12-10', description: 'Standard template for root cause analysis of crash incidents. Covers flight log analysis, hardware inspection, and corrective actions.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-012', title: 'RCA Report - FS-091 Motor Failure', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2024-01-18', description: 'Root cause analysis for FS-091 crash. Motor 2 overcurrent event confirmed. ESC replaced.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-013', title: 'Payload System Assembly', category: 'build_guides' as DocCategory, type: 'video', version: 'v1.0', lastUpdated: '2023-11-28', description: 'Video walkthrough of payload board base and cover installation, including radio shield placement.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-014', title: 'TBS Backpack Firmware Update', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-14', description: 'Step-by-step TBS backpack firmware update procedure. Required for all units prior to deployment.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-015', title: 'Fuselage Assembly - Bottom Plate', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.0', lastUpdated: '2023-12-05', description: 'Diagram showing bottom plate assembly sequence, standoff positions, and torque specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
+  { id: 'D-016', title: 'Pre-Flight Checklist', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v3.1', lastUpdated: '2024-01-15', description: 'Complete pre-flight inspection and verification checklist for all V2 drone variants.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
 ];
+
+const DEFAULT_FAVORITES = ['D-001', 'D-002', 'D-005', 'D-006', 'D-007', 'D-016'];
 
 const CATEGORY_LABELS: Record<DocCategory, string> = {
   all: 'All Documents',
@@ -50,18 +52,36 @@ const TYPE_COLORS: Record<string, string> = {
 export default function InformationHubPage() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<DocCategory>('all');
-  const [showStarred, setShowStarred] = useState(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState<Set<string>>(new Set(DEFAULT_FAVORITES));
+
+  useEffect(() => {
+    const saved = localStorage.getItem('ihub-favorites');
+    if (saved) setFavorites(new Set(JSON.parse(saved)));
+  }, []);
+
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      localStorage.setItem('ihub-favorites', JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   const filtered = DOCS.filter(doc => {
     const matchSearch = !search ||
       doc.title.toLowerCase().includes(search.toLowerCase()) ||
       doc.description.toLowerCase().includes(search.toLowerCase());
     const matchCat = category === 'all' || doc.category === category;
-    const matchStar = !showStarred || doc.starred;
-    return matchSearch && matchCat && matchStar;
+    const matchFav = !showFavoritesOnly || favorites.has(doc.id);
+    return matchSearch && matchCat && matchFav;
   });
 
-  const starredDocs = DOCS.filter(d => d.starred);
+  const favoriteDocs = DOCS.filter(d => favorites.has(d.id));
 
   return (
     <div>
@@ -85,34 +105,43 @@ export default function InformationHubPage() {
           </a>
         </div>
 
-        {/* Starred / Quick Access */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-3">
-            <Star className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-semibold text-white">Quick Access</h2>
+        {/* Quick Access / Favorites */}
+        {favoriteDocs.length > 0 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
+              <h2 className="text-sm font-semibold text-white">Quick Access</h2>
+              <span className="text-xs text-gray-500">· {favoriteDocs.length} favorited</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {favoriteDocs.map(doc => {
+                const Icon = TYPE_ICONS[doc.type] || FileText;
+                return (
+                  <a
+                    key={doc.id}
+                    href={doc.driveLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-3 bg-gray-800 rounded-lg hover:border-blue-500/30 border border-transparent transition-all group"
+                  >
+                    <Icon className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white truncate group-hover:text-blue-400 transition-colors">{doc.title}</p>
+                      <p className="text-xs text-gray-500">{doc.version}</p>
+                    </div>
+                    <button
+                      onClick={(e) => toggleFavorite(doc.id, e)}
+                      className="text-amber-400 hover:text-gray-400 transition-colors"
+                      title="Remove from favorites"
+                    >
+                      <Star className="w-3 h-3 fill-current" />
+                    </button>
+                  </a>
+                );
+              })}
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {starredDocs.map(doc => {
-              const Icon = TYPE_ICONS[doc.type] || FileText;
-              return (
-                <a
-                  key={doc.id}
-                  href={doc.driveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2.5 p-3 bg-gray-800 rounded-lg hover:bg-gray-750 hover:border-blue-500/30 border border-transparent transition-all group"
-                >
-                  <Icon className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white truncate group-hover:text-blue-400 transition-colors">{doc.title}</p>
-                    <p className="text-xs text-gray-500">{doc.version}</p>
-                  </div>
-                  <ExternalLink className="w-3 h-3 text-gray-600 group-hover:text-gray-400" />
-                </a>
-              );
-            })}
-          </div>
-        </div>
+        )}
 
         {/* Search + Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
@@ -127,13 +156,13 @@ export default function InformationHubPage() {
             />
           </div>
           <button
-            onClick={() => setShowStarred(s => !s)}
+            onClick={() => setShowFavoritesOnly(s => !s)}
             className={cn('flex items-center gap-2 px-4 py-2 rounded-lg border text-xs font-medium transition-colors',
-              showStarred ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'border-gray-700 text-gray-400 hover:text-white'
+              showFavoritesOnly ? 'bg-amber-500/20 border-amber-500/30 text-amber-400' : 'border-gray-700 text-gray-400 hover:text-white'
             )}
           >
             <Star className="w-3.5 h-3.5" />
-            Starred only
+            Favorites only
           </button>
         </div>
 
@@ -159,6 +188,7 @@ export default function InformationHubPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map(doc => {
             const Icon = TYPE_ICONS[doc.type] || FileText;
+            const isFav = favorites.has(doc.id);
             return (
               <a
                 key={doc.id}
@@ -172,8 +202,14 @@ export default function InformationHubPage() {
                     <Icon className="w-3.5 h-3.5" />
                     {doc.type.toUpperCase()}
                   </div>
-                  <div className="flex items-center gap-2">
-                    {doc.starred && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={(e) => toggleFavorite(doc.id, e)}
+                      title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                      className={cn('p-1 rounded transition-colors', isFav ? 'text-amber-400 hover:text-gray-400' : 'text-gray-600 hover:text-amber-400')}
+                    >
+                      <Star className={cn('w-3.5 h-3.5', isFav && 'fill-current')} />
+                    </button>
                     <ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-colors" />
                   </div>
                 </div>
@@ -199,7 +235,7 @@ export default function InformationHubPage() {
           </div>
         )}
 
-        <p className="text-xs text-gray-600 text-right">{filtered.length} of {DOCS.length} documents</p>
+        <p className="text-xs text-gray-600 text-right">{filtered.length} of {DOCS.length} documents · Click ★ to favorite</p>
       </div>
     </div>
   );

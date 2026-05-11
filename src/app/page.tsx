@@ -9,24 +9,30 @@ import {
 import Link from 'next/link';
 import { getDroneStatusColor, getDroneStatusLabel, getWorkOrderStatusColor, getWorkOrderStatusLabel, getWorkOrderTypeColor, getWorkOrderTypeLabel, cn } from '@/lib/utils';
 
-function KPICard({ title, value, subtitle, icon: Icon, color }: {
+function KPICard({ title, value, subtitle, icon: Icon, color, href }: {
   title: string; value: string | number; subtitle?: string;
-  icon: React.ElementType; color: string;
+  icon: React.ElementType; color: string; href?: string;
 }) {
-  return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{title}</p>
-          <p className="text-2xl font-bold text-white mt-1">{value}</p>
-          {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
-        </div>
-        <div className={`p-2 rounded-lg ${color}`}>
-          <Icon className="w-5 h-5" />
-        </div>
+  const inner = (
+    <div className="flex items-start justify-between">
+      <div>
+        <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">{title}</p>
+        <p className="text-2xl font-bold text-white mt-1">{value}</p>
+        {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
+      </div>
+      <div className={`p-2 rounded-lg ${color}`}>
+        <Icon className="w-5 h-5" />
       </div>
     </div>
   );
+  if (href) {
+    return (
+      <Link href={href} className="bg-gray-900 border border-gray-800 rounded-xl p-5 block hover:border-gray-600 transition-colors">
+        {inner}
+      </Link>
+    );
+  }
+  return <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">{inner}</div>;
 }
 
 export default function DashboardPage() {
@@ -73,10 +79,10 @@ export default function DashboardPage() {
 
         {/* Top KPIs */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KPICard title="Total Fleet" value={totalDrones} subtitle={`${dronesInField} deployed`} icon={Plane} color="bg-blue-500/20 text-blue-400" />
-          <KPICard title="Open Work Orders" value={openWOs + inProgressWOs} subtitle={`${criticalWOs} critical`} icon={ClipboardList} color="bg-amber-500/20 text-amber-400" />
-          <KPICard title="Inventory Alerts" value={itemsBelowMin} subtitle={`${repurchaseItems} flagged for reorder`} icon={Package} color="bg-red-500/20 text-red-400" />
-          <KPICard title="RCA Completion" value={`${rcaPct}%`} subtitle={`${rcaCompleted} of ${crashedDrones} recovered`} icon={ShieldAlert} color="bg-purple-500/20 text-purple-400" />
+          <KPICard title="Total Fleet" value={totalDrones} subtitle={`${dronesInField} deployed`} icon={Plane} color="bg-blue-500/20 text-blue-400" href="/drones" />
+          <KPICard title="Open Work Orders" value={openWOs + inProgressWOs} subtitle={`${criticalWOs} critical`} icon={ClipboardList} color="bg-amber-500/20 text-amber-400" href="/work-orders" />
+          <KPICard title="Inventory Alerts" value={itemsBelowMin} subtitle={`${repurchaseItems} flagged for reorder`} icon={Package} color="bg-red-500/20 text-red-400" href="/inventory" />
+          <KPICard title="RCA Completion" value={`${rcaPct}%`} subtitle={`${rcaCompleted} of ${crashedDrones} recovered`} icon={ShieldAlert} color="bg-purple-500/20 text-purple-400" href="/drones" />
         </div>
 
         {/* Drone Status + Region + WO Summary */}

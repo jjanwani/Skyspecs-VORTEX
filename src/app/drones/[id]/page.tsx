@@ -25,8 +25,9 @@ function ComplianceBadge({ label, ok }: { label: string; ok: boolean }) {
   );
 }
 
-export default function DroneDetailPage({ params }: { params: { id: string } }) {
-  const drone = drones.find(d => d.id === params.id);
+export default async function DroneDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const drone = drones.find(d => d.id === id);
   if (!drone) notFound();
 
   const droneWOs = workOrders.filter(w => w.droneId === drone.id);

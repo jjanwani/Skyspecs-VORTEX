@@ -100,6 +100,7 @@ export interface InventoryItem {
   currentCount: number;
   repurchaseFlag: boolean;
   repurchaseCount: number;
+  purchaseLink?: string;
 }
 
 export interface KPIData {

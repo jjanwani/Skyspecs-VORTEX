@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
@@ -20,9 +20,10 @@ import { WorkOrderStatus } from '@/lib/types';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
 
-export default function WorkOrderPage({ params }: { params: { id: string; woId: string } }) {
-  const drone = drones.find(d => d.id === params.id);
-  const wo = workOrders.find(w => w.id === params.woId);
+export default function WorkOrderPage({ params }: { params: Promise<{ id: string; woId: string }> }) {
+  const { id, woId } = use(params);
+  const drone = drones.find(d => d.id === id);
+  const wo = workOrders.find(w => w.id === woId);
   if (!drone || !wo) notFound();
 
   const [status, setStatus] = useState<WorkOrderStatus>(wo.status);
