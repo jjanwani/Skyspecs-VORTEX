@@ -32,7 +32,7 @@ export default function Sidebar() {
 
   return (
     <aside className={cn(
-      'bg-gray-900 border-r border-gray-800 flex flex-col min-h-screen transition-all duration-200 flex-shrink-0',
+      'bg-gray-900 border-r border-gray-800 flex flex-col min-h-screen transition-all duration-200 flex-shrink-0 overflow-hidden',
       collapsed ? 'w-16' : 'w-64'
     )}>
       <div className="px-3 py-4 border-b border-gray-800 flex items-center justify-between">

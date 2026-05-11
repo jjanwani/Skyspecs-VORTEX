@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, use } from 'react';
+import { useState, useEffect, use } from 'react';
 import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
@@ -16,17 +16,59 @@ import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle
 } from 'lucide-react';
-import { WorkOrderStatus } from '@/lib/types';
+import { WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
+import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
+
+const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+  { value: 'critical', label: 'Critical' },
+];
+
+const PART_STATUS_OPTIONS = [
+  { value: 'available', label: 'Available' },
+  { value: 'on_order', label: 'On Order' },
+  { value: 'missing', label: 'Missing' },
+];
+
+type PartStatus = 'available' | 'on_order' | 'missing';
 
 export default function WorkOrderPage({ params }: { params: Promise<{ id: string; woId: string }> }) {
   const { id, woId } = use(params);
   const drone = drones.find(d => d.id === id);
-  const wo = workOrders.find(w => w.id === woId);
-  if (!drone || !wo) notFound();
+  const baseWo = workOrders.find(w => w.id === woId);
+  if (!drone || !baseWo) notFound();
 
-  const [status, setStatus] = useState<WorkOrderStatus>(wo.status);
+  const [edits, setEdits] = useState<Partial<WorkOrder>>({});
+  const [partStatusEdits, setPartStatusEdits] = useState<Record<number, PartStatus>>({});
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`workorder-edits-${woId}`);
+    if (saved) setEdits(JSON.parse(saved));
+    const savedParts = localStorage.getItem(`workorder-parts-${woId}`);
+    if (savedParts) setPartStatusEdits(JSON.parse(savedParts));
+  }, [woId]);
+
+  const wo: WorkOrder = { ...baseWo, ...edits };
+
+  const update = (field: keyof WorkOrder, value: unknown) => {
+    setEdits(prev => {
+      const next = { ...prev, [field]: value };
+      localStorage.setItem(`workorder-edits-${woId}`, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const updatePartStatus = (index: number, status: PartStatus) => {
+    setPartStatusEdits(prev => {
+      const next = { ...prev, [index]: status };
+      localStorage.setItem(`workorder-parts-${woId}`, JSON.stringify(next));
+      return next;
+    });
+  };
 
   return (
     <div>
@@ -35,7 +77,9 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
 
         {/* Breadcrumb */}
         <div className="flex items-center gap-2 text-xs text-gray-500">
-          <Link href="/drones" className="hover:text-white transition-colors">Drones</Link>
+          <Link href="/drones" className="hover:text-white transition-colors flex items-center gap-1">
+            <ArrowLeft className="w-3 h-3" /> Drones
+          </Link>
           <ChevronRight className="w-3 h-3" />
           <Link href={`/drones/${drone.id}`} className="hover:text-white transition-colors">{drone.name}</Link>
           <ChevronRight className="w-3 h-3" />
@@ -54,26 +98,37 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                 <span className={cn('text-xs px-2 py-1 rounded-lg border font-medium', getWorkOrderTypeColor(wo.type))}>
                   {getWorkOrderTypeLabel(wo.type)}
                 </span>
-                <span className={cn('text-xs px-2 py-1 rounded-lg border font-medium', getPriorityColor(wo.priority))}>
-                  {wo.priority.charAt(0).toUpperCase() + wo.priority.slice(1)} Priority
-                </span>
+                <InlineEdit
+                  value={wo.priority}
+                  type="select"
+                  options={PRIORITY_OPTIONS}
+                  onSave={v => update('priority', v as WorkOrderPriority)}
+                  displayClassName={cn('text-xs px-2 py-1 rounded-lg border font-medium', getPriorityColor(wo.priority))}
+                />
                 {wo.ernReference && (
-                  <span className="text-xs px-2 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400">
-                    {wo.ernReference}
-                  </span>
+                  <InlineEdit
+                    value={wo.ernReference}
+                    onSave={v => update('ernReference', v)}
+                    displayClassName="text-xs px-2 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400"
+                  />
                 )}
               </div>
               <h2 className="text-lg font-bold text-white mb-3">{wo.title}</h2>
               <p className="text-sm text-gray-400 leading-relaxed">{wo.description}</p>
 
-              {wo.notes && (
-                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                  <p className="text-xs font-medium text-amber-400 mb-1 flex items-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5" /> Additional Notes
-                  </p>
-                  <p className="text-xs text-amber-300">{wo.notes}</p>
-                </div>
-              )}
+              <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                <p className="text-xs font-medium text-amber-400 mb-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> Notes
+                </p>
+                <InlineEdit
+                  value={wo.notes ?? ''}
+                  type="textarea"
+                  onSave={v => update('notes', v)}
+                  placeholder="Add notes..."
+                  displayClassName={cn('text-xs leading-relaxed', wo.notes ? 'text-amber-300' : 'text-gray-600')}
+                  emptyLabel="Click to add notes"
+                />
+              </div>
             </div>
 
             {/* Status Update */}
@@ -83,10 +138,10 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                 {STATUS_FLOW.map(s => (
                   <button
                     key={s}
-                    onClick={() => setStatus(s)}
+                    onClick={() => update('status', s)}
                     className={cn(
                       'px-4 py-2 rounded-lg text-xs font-medium border transition-all',
-                      status === s
+                      wo.status === s
                         ? getWorkOrderStatusColor(s).replace('/20', '/30').replace('/30', '/50')
                         : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white'
                     )}
@@ -97,8 +152,8 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="mt-3">
                 <span className="text-xs text-gray-500">Current: </span>
-                <span className={cn('text-xs px-2 py-0.5 rounded border', getWorkOrderStatusColor(status))}>
-                  {getWorkOrderStatusLabel(status)}
+                <span className={cn('text-xs px-2 py-0.5 rounded border', getWorkOrderStatusColor(wo.status))}>
+                  {getWorkOrderStatusLabel(wo.status)}
                 </span>
               </div>
             </div>
@@ -111,21 +166,28 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                   Parts Required
                 </h3>
                 <div className="space-y-2">
-                  {wo.parts.map((part, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                      <div>
-                        <p className="text-xs font-medium text-white">{part.name}</p>
-                        <p className="text-xs text-gray-500">Qty: {part.qty}</p>
+                  {wo.parts.map((part, i) => {
+                    const partStatus = partStatusEdits[i] ?? part.status;
+                    return (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
+                        <div>
+                          <p className="text-xs font-medium text-white">{part.name}</p>
+                          <p className="text-xs text-gray-500">Qty: {part.qty}</p>
+                        </div>
+                        <InlineEdit
+                          value={partStatus}
+                          type="select"
+                          options={PART_STATUS_OPTIONS}
+                          onSave={v => updatePartStatus(i, v as PartStatus)}
+                          displayClassName={cn('text-xs px-2 py-0.5 rounded border',
+                            partStatus === 'available' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                              partStatus === 'on_order' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                                'bg-red-500/10 text-red-400 border-red-500/20'
+                          )}
+                        />
                       </div>
-                      <span className={cn('text-xs px-2 py-0.5 rounded border',
-                        part.status === 'available' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                          part.status === 'on_order' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                            'bg-red-500/10 text-red-400 border-red-500/20'
-                      )}>
-                        {part.status === 'available' ? 'Available' : part.status === 'on_order' ? 'On Order' : 'Missing'}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -194,22 +256,40 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-white mb-3">Details</h3>
               <div className="space-y-3 text-xs">
-                {wo.assignedTech && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 flex items-center gap-1"><User className="w-3 h-3" /> Assigned</span>
-                    <span className="text-white">{wo.assignedTech}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Est. Hours</span>
-                  <span className="text-white">{wo.estimatedHours}h</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 flex items-center gap-1"><User className="w-3 h-3" /> Assigned</span>
+                  <InlineEdit
+                    value={wo.assignedTech ?? ''}
+                    onSave={v => update('assignedTech', v)}
+                    displayClassName="text-white"
+                    emptyLabel="Unassigned"
+                  />
                 </div>
-                {wo.actualHours && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Actual Hours</span>
-                    <span className="text-white">{wo.actualHours}h</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 flex items-center gap-1"><Clock className="w-3 h-3" /> Est. Hours</span>
+                  <div className="flex items-center gap-1">
+                    <InlineEdit
+                      value={wo.estimatedHours}
+                      type="number"
+                      onSave={v => update('estimatedHours', Number(v))}
+                      displayClassName="text-white"
+                    />
+                    <span className="text-gray-500">h</span>
                   </div>
-                )}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">Actual Hours</span>
+                  <div className="flex items-center gap-1">
+                    <InlineEdit
+                      value={wo.actualHours ?? 0}
+                      type="number"
+                      onSave={v => update('actualHours', Number(v))}
+                      displayClassName="text-white"
+                      emptyLabel="—"
+                    />
+                    <span className="text-gray-500">h</span>
+                  </div>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Created</span>
                   <span className="text-white">{formatDate(wo.createdAt)}</span>
@@ -261,6 +341,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
         </div>
+        <p className="text-xs text-gray-600">Hover any field to edit · Changes saved locally</p>
       </div>
     </div>
   );

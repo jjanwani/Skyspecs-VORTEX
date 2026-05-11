@@ -3,18 +3,26 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import Header from '@/components/layout/Header';
 import { inventoryItems } from '@/lib/data/inventory';
-import { InventoryCategory, PIPOStatus } from '@/lib/types';
+import { InventoryCategory, InventoryItem, PIPOStatus } from '@/lib/types';
 import { getPIPOStatusColor, getPIPOStatusLabel, formatDate, cn } from '@/lib/utils';
 import {
   Search, Package, AlertTriangle, Filter, ChevronUp, ChevronDown,
   ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check
 } from 'lucide-react';
+import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 
 type SortKey = 'name' | 'category' | 'currentCount' | 'minQty' | 'usageRatePerWeek' | 'discrepancy';
 type SortDir = 'asc' | 'desc';
 
 const CATEGORIES: (InventoryCategory | 'all')[] = [
   'all', 'Corestack', 'Gimbal', 'Fuselage', 'Peripherals', 'GCS', 'RTK', 'Transmitters', 'Misc', '3D Printing'
+];
+
+const PIPO_OPTIONS = [
+  { value: 'in_stock', label: 'In Stock' },
+  { value: 'low_stock', label: 'Low Stock' },
+  { value: 'on_order', label: 'On Order' },
+  { value: 'depleted', label: 'Depleted' },
 ];
 
 function StockBar({ current, min, max }: { current: number; min: number; max: number }) {
@@ -36,6 +44,8 @@ function StockBar({ current, min, max }: { current: number; min: number; max: nu
   );
 }
 
+type ItemOverrides = Partial<Pick<InventoryItem, 'currentCount' | 'pipoStatus' | 'incoming' | 'assignedTech' | 'location' | 'notes' | 'repurchaseFlag'>>;
+
 export default function InventoryPage() {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all');
@@ -50,16 +60,34 @@ export default function InventoryPage() {
   const [purchaseLinks, setPurchaseLinks] = useState<Record<string, string>>({});
   const [editingPurchaseLink, setEditingPurchaseLink] = useState<string | null>(null);
   const [editPurchaseLinkVal, setEditPurchaseLinkVal] = useState('');
+  const [itemOverrides, setItemOverrides] = useState<Record<string, ItemOverrides>>({});
 
   useEffect(() => {
     const savedMin = localStorage.getItem('inventory-min-qty');
     if (savedMin) setMinQtyOverrides(JSON.parse(savedMin));
     const savedLinks = localStorage.getItem('inventory-purchase-links');
     if (savedLinks) setPurchaseLinks(JSON.parse(savedLinks));
+    const savedOverrides = localStorage.getItem('inventory-overrides');
+    if (savedOverrides) setItemOverrides(JSON.parse(savedOverrides));
   }, []);
 
   const getEffectiveMinQty = (id: string, defaultMin: number) =>
     minQtyOverrides[id] ?? defaultMin;
+
+  const getItem = (base: InventoryItem): InventoryItem => ({
+    ...base,
+    ...(itemOverrides[base.id] ?? {}),
+    minQty: minQtyOverrides[base.id] ?? base.minQty,
+    purchaseLink: purchaseLinks[base.id] ?? base.purchaseLink,
+  });
+
+  const updateItemField = (id: string, field: keyof ItemOverrides, value: unknown) => {
+    setItemOverrides(prev => {
+      const next = { ...prev, [id]: { ...(prev[id] ?? {}), [field]: value } };
+      localStorage.setItem('inventory-overrides', JSON.stringify(next));
+      return next;
+    });
+  };
 
   const saveMinQty = (id: string, val: string) => {
     const num = parseInt(val);
@@ -77,9 +105,10 @@ export default function InventoryPage() {
     setEditingPurchaseLink(null);
   };
 
+  const effectiveItems = useMemo(() => inventoryItems.map(getItem), [itemOverrides, minQtyOverrides, purchaseLinks]);
+
   const filtered = useMemo(() => {
-    let items = inventoryItems.filter(item => {
-      const effMin = getEffectiveMinQty(item.id, item.minQty);
+    let items = effectiveItems.filter(item => {
       const matchSearch = !search ||
         item.name.toLowerCase().includes(search.toLowerCase()) ||
         item.category.toLowerCase().includes(search.toLowerCase()) ||
@@ -90,7 +119,7 @@ export default function InventoryPage() {
       const matchPipo = pipoFilter === 'all' || item.pipoStatus === pipoFilter;
       const matchAlert =
         alertFilter === 'all' ? true :
-          alertFilter === 'low' ? item.currentCount < effMin :
+          alertFilter === 'low' ? item.currentCount < item.minQty :
             alertFilter === 'repurchase' ? item.repurchaseFlag :
               item.pipoStatus === 'on_order';
       return matchSearch && matchCat && matchPipo && matchAlert;
@@ -107,7 +136,7 @@ export default function InventoryPage() {
     });
     return items;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter, pipoFilter, alertFilter, sortKey, sortDir, minQtyOverrides]);
+  }, [search, categoryFilter, pipoFilter, alertFilter, sortKey, sortDir, effectiveItems]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -119,10 +148,10 @@ export default function InventoryPage() {
     return sortDir === 'asc' ? <ChevronUp className="w-3 h-3 text-blue-400" /> : <ChevronDown className="w-3 h-3 text-blue-400" />;
   };
 
-  const belowMin = inventoryItems.filter(i => i.currentCount < getEffectiveMinQty(i.id, i.minQty)).length;
-  const repurchaseCount = inventoryItems.filter(i => i.repurchaseFlag).length;
-  const onOrderCount = inventoryItems.filter(i => i.pipoStatus === 'on_order').length;
-  const inStockCount = inventoryItems.filter(i => i.pipoStatus === 'in_stock').length;
+  const belowMin = effectiveItems.filter(i => i.currentCount < i.minQty).length;
+  const repurchaseCount = effectiveItems.filter(i => i.repurchaseFlag).length;
+  const onOrderCount = effectiveItems.filter(i => i.pipoStatus === 'on_order').length;
+  const inStockCount = effectiveItems.filter(i => i.pipoStatus === 'in_stock').length;
 
   return (
     <div>
@@ -201,7 +230,7 @@ export default function InventoryPage() {
           {/* Category Tabs */}
           <div className="flex gap-1.5 flex-wrap">
             {CATEGORIES.map(c => {
-              const count = c === 'all' ? inventoryItems.length : inventoryItems.filter(i => i.category === c).length;
+              const count = c === 'all' ? effectiveItems.length : effectiveItems.filter(i => i.category === c).length;
               return (
                 <button
                   key={c}
@@ -256,10 +285,9 @@ export default function InventoryPage() {
               </thead>
               <tbody>
                 {filtered.map(item => {
-                  const effMin = getEffectiveMinQty(item.id, item.minQty);
-                  const isLow = item.currentCount < effMin;
+                  const isLow = item.currentCount < item.minQty;
                   const expanded = expandedItem === item.id;
-                  const purchaseLink = purchaseLinks[item.id] ?? item.purchaseLink ?? '';
+                  const purchaseLink = item.purchaseLink ?? '';
                   return (
                     <Fragment key={item.id}>
                       <tr
@@ -282,50 +310,74 @@ export default function InventoryPage() {
                         <td className="px-4 py-3">
                           <span className="text-gray-400">{item.category}</span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-gray-400">{item.assignedTech || '—'}</span>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <InlineEdit
+                            value={item.assignedTech ?? ''}
+                            onSave={v => updateItemField(item.id, 'assignedTech', v)}
+                            displayClassName="text-gray-400"
+                            emptyLabel="—"
+                          />
                         </td>
                         <td className="px-4 py-3 min-w-[140px]">
-                          <StockBar current={item.currentCount} min={effMin} max={Math.max(item.qty, effMin * 1.5)} />
-                          <div className="flex items-center gap-1 mt-0.5">
-                            {editingMinQty === item.id ? (
-                              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                                <input
-                                  autoFocus
-                                  type="number"
-                                  value={editMinQtyVal}
-                                  onChange={e => setEditMinQtyVal(e.target.value)}
-                                  onKeyDown={e => {
-                                    if (e.key === 'Enter') saveMinQty(item.id, editMinQtyVal);
-                                    if (e.key === 'Escape') setEditingMinQty(null);
-                                  }}
-                                  className="w-14 px-1 py-0.5 bg-gray-700 border border-blue-500 rounded text-white text-xs"
+                          <div onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden min-w-[48px]">
+                                <div
+                                  className={cn('h-full rounded-full', item.currentCount === 0 ? 'bg-red-500' : isLow ? 'bg-amber-500' : 'bg-green-500')}
+                                  style={{ width: `${Math.min((item.currentCount / Math.max(item.qty, item.minQty * 1.5)) * 100, 100)}%` }}
                                 />
-                                <button onClick={() => saveMinQty(item.id, editMinQtyVal)} className="text-green-400 hover:text-green-300">
-                                  <Check className="w-3 h-3" />
-                                </button>
-                                <button onClick={() => setEditingMinQty(null)} className="text-gray-500 hover:text-gray-300">
-                                  <X className="w-3 h-3" />
-                                </button>
                               </div>
-                            ) : (
-                              <button
-                                className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 group/min"
-                                onClick={e => { e.stopPropagation(); setEditingMinQty(item.id); setEditMinQtyVal(String(effMin)); }}
-                              >
-                                <span>min: {effMin}</span>
-                                <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/min:opacity-100 transition-opacity" />
-                              </button>
-                            )}
-                            {minQtyOverrides[item.id] !== undefined && (
-                              <span className="text-blue-400 text-xs">*</span>
-                            )}
+                              <InlineEdit
+                                value={item.currentCount}
+                                type="number"
+                                onSave={v => updateItemField(item.id, 'currentCount', Number(v))}
+                                displayClassName={cn('text-xs font-medium tabular-nums', item.currentCount === 0 ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-white')}
+                              />
+                            </div>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              {editingMinQty === item.id ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    autoFocus
+                                    type="number"
+                                    value={editMinQtyVal}
+                                    onChange={e => setEditMinQtyVal(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter') saveMinQty(item.id, editMinQtyVal);
+                                      if (e.key === 'Escape') setEditingMinQty(null);
+                                    }}
+                                    className="w-14 px-1 py-0.5 bg-gray-700 border border-blue-500 rounded text-white text-xs"
+                                  />
+                                  <button onClick={() => saveMinQty(item.id, editMinQtyVal)} className="text-green-400 hover:text-green-300">
+                                    <Check className="w-3 h-3" />
+                                  </button>
+                                  <button onClick={() => setEditingMinQty(null)} className="text-gray-500 hover:text-gray-300">
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 group/min"
+                                  onClick={e => { e.stopPropagation(); setEditingMinQty(item.id); setEditMinQtyVal(String(item.minQty)); }}
+                                >
+                                  <span>min: {item.minQty}</span>
+                                  <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/min:opacity-100 transition-opacity" />
+                                </button>
+                              )}
+                              {minQtyOverrides[item.id] !== undefined && (
+                                <span className="text-blue-400 text-xs">*</span>
+                              )}
+                            </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={cn('px-1.5 py-0.5 rounded border text-xs', getPIPOStatusColor(item.pipoStatus))}>
-                            {getPIPOStatusLabel(item.pipoStatus)}
-                          </span>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <InlineEdit
+                            value={item.pipoStatus}
+                            type="select"
+                            options={PIPO_OPTIONS}
+                            onSave={v => updateItemField(item.id, 'pipoStatus', v as PIPOStatus)}
+                            displayClassName={cn('px-1.5 py-0.5 rounded border text-xs', getPIPOStatusColor(item.pipoStatus))}
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <span className={cn('font-medium',
@@ -334,10 +386,14 @@ export default function InventoryPage() {
                             {item.discrepancy === 0 ? '—' : item.discrepancy > 0 ? `+${item.discrepancy}` : item.discrepancy}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={cn(item.incoming > 0 ? 'text-blue-400' : 'text-gray-600')}>
-                            {item.incoming > 0 ? `+${item.incoming}` : '—'}
-                          </span>
+                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                          <InlineEdit
+                            value={item.incoming}
+                            type="number"
+                            onSave={v => updateItemField(item.id, 'incoming', Number(v))}
+                            displayClassName={cn(item.incoming > 0 ? 'text-blue-400' : 'text-gray-600')}
+                            emptyLabel="—"
+                          />
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-gray-400">{item.usageRatePerWeek}/wk</span>
@@ -350,9 +406,14 @@ export default function InventoryPage() {
                         <tr className="border-b border-gray-800 bg-gray-800/30">
                           <td colSpan={9} className="px-4 py-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-xs">
-                              <div>
+                              <div onClick={e => e.stopPropagation()}>
                                 <p className="text-gray-500 mb-1">Location</p>
-                                <p className="text-white">{item.location}</p>
+                                <InlineEdit
+                                  value={item.location ?? ''}
+                                  onSave={v => updateItemField(item.id, 'location', v)}
+                                  displayClassName="text-white"
+                                  emptyLabel="—"
+                                />
                               </div>
                               <div>
                                 <p className="text-gray-500 mb-1">Qty per Assembly</p>
@@ -391,6 +452,16 @@ export default function InventoryPage() {
                               <div>
                                 <p className="text-gray-500 mb-1">Last Updated</p>
                                 <p className="text-white">{formatDate(item.lastUpdated)}</p>
+                              </div>
+                              <div onClick={e => e.stopPropagation()}>
+                                <p className="text-gray-500 mb-1">Reorder Flag</p>
+                                <InlineToggle
+                                  value={item.repurchaseFlag}
+                                  onToggle={() => updateItemField(item.id, 'repurchaseFlag', !item.repurchaseFlag)}
+                                  trueLabel="Flagged"
+                                  falseLabel="Not flagged"
+                                  trueClass="bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                />
                               </div>
                               {/* Purchase Link */}
                               <div className="col-span-2" onClick={e => e.stopPropagation()}>
@@ -436,12 +507,17 @@ export default function InventoryPage() {
                                   </button>
                                 )}
                               </div>
-                              {item.notes && (
-                                <div className="col-span-2 md:col-span-4">
-                                  <p className="text-gray-500 mb-1">Notes</p>
-                                  <p className="text-amber-300">{item.notes}</p>
-                                </div>
-                              )}
+                              <div className="col-span-2 md:col-span-4" onClick={e => e.stopPropagation()}>
+                                <p className="text-gray-500 mb-1">Notes</p>
+                                <InlineEdit
+                                  value={item.notes ?? ''}
+                                  type="textarea"
+                                  onSave={v => updateItemField(item.id, 'notes', v)}
+                                  placeholder="Add notes..."
+                                  displayClassName={cn('leading-relaxed', item.notes ? 'text-amber-300' : 'text-gray-600')}
+                                  emptyLabel="Click to add notes"
+                                />
+                              </div>
                             </div>
                           </td>
                         </tr>
@@ -459,7 +535,7 @@ export default function InventoryPage() {
             </div>
           )}
         </div>
-        <p className="text-xs text-gray-600 text-right">{filtered.length} of {inventoryItems.length} items · Click a row to expand · Hover &ldquo;min&rdquo; to edit minimum quantity</p>
+        <p className="text-xs text-gray-600 text-right">{filtered.length} of {inventoryItems.length} items · Click a row to expand · Hover any field to edit</p>
       </div>
     </div>
   );
