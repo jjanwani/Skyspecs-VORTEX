@@ -14,6 +14,8 @@ const DEFAULT_USERS: PlatformUser[] = [
   { id: 'u-tech', name: 'Kaj (Tech)', email: 'kaj@skyspecs.com', role: 'technician', createdAt: '2024-01-01' },
   { id: 'u-eng', name: 'Tyler (Eng)', email: 'tyler@skyspecs.com', role: 'engineer', createdAt: '2024-01-01' },
   { id: 'u-proc', name: 'Drake (Procurement)', email: 'drake@skyspecs.com', role: 'procurement', createdAt: '2024-01-01' },
+  { id: 'u-loren', name: 'Loren Madden', email: 'loren.madden@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-eeshan', name: 'Eeshan Khanpara', email: 'eeshan.khanpara@skyspecs.com', role: 'engineer', createdAt: '2024-01-01' },
 ];
 
 export function getPlatformUsers(): PlatformUser[] {
