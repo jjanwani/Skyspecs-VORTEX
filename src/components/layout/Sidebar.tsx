@@ -1,12 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu, Settings, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ROLE_LABELS, ROLE_COLORS } from '@/lib/permissions';
 
-const navItems = [
+const NAV_ITEMS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/drones', label: 'Drones', icon: Plane },
   { href: '/work-orders', label: 'Work Orders', icon: ClipboardList },
@@ -16,6 +18,8 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -29,6 +33,17 @@ export default function Sidebar() {
       return !c;
     });
   };
+
+  const handleLogout = () => {
+    logout();
+    localStorage.removeItem('authenticated');
+    router.push('/login');
+  };
+
+  const navItems = [
+    ...NAV_ITEMS,
+    ...(user?.role === 'admin' ? [{ href: '/admin', label: 'Admin', icon: Settings }] : []),
+  ];
 
   return (
     <aside className={cn(
@@ -100,6 +115,52 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* User section */}
+      <div className={cn('border-t border-gray-800', collapsed ? 'p-2' : 'p-3')}>
+        {!collapsed && user && (
+          <div
+            className={cn(
+              'flex items-center gap-2 p-2 rounded-lg mb-2',
+              user.role === 'admin' ? 'cursor-pointer hover:bg-gray-800 transition-colors' : ''
+            )}
+            onClick={() => user.role === 'admin' && router.push('/admin')}
+          >
+            <div className="w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center flex-shrink-0 text-sm font-bold text-white">
+              {user.name.charAt(0)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-white truncate">{user.name}</p>
+              <span className={cn('text-xs px-1.5 py-0.5 rounded border font-medium', ROLE_COLORS[user.role])}>
+                {ROLE_LABELS[user.role]}
+              </span>
+            </div>
+          </div>
+        )}
+        {collapsed && user && (
+          <div
+            className={cn(
+              'w-8 h-8 bg-gray-700 rounded-lg flex items-center justify-center mx-auto text-sm font-bold text-white mb-2',
+              user.role === 'admin' ? 'cursor-pointer hover:bg-gray-600 transition-colors' : ''
+            )}
+            title={user.name}
+            onClick={() => user.role === 'admin' && router.push('/admin')}
+          >
+            {user.name.charAt(0)}
+          </div>
+        )}
+        <button
+          onClick={handleLogout}
+          title="Sign out"
+          className={cn(
+            'flex items-center gap-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors text-xs',
+            collapsed ? 'w-full justify-center p-2' : 'w-full px-2 py-1.5'
+          )}
+        >
+          <LogOut className="w-4 h-4 flex-shrink-0" />
+          {!collapsed && <span>Sign out</span>}
+        </button>
+      </div>
 
       {!collapsed && (
         <div className="px-4 py-4 border-t border-gray-800">

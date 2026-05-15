@@ -33,6 +33,9 @@ export interface WorkOrder {
   notes?: string;
   parts?: { name: string; qty: number; status: 'available' | 'on_order' | 'missing' }[];
   completionHistory?: { droneId: string; droneName: string; date: string; tech: string }[];
+  source?: 'platform' | 'slack' | 'salesforce';
+  salesforceProjectId?: string;
+  salesforceProjectName?: string;
 }
 
 export interface Drone {
@@ -54,6 +57,7 @@ export interface Drone {
   deploymentRegion?: string;
   crashHistory: number;
   rcaCompleted: boolean;
+  salesforceAssetId?: string;
 }
 
 export type InventoryCategory =

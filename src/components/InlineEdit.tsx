@@ -15,11 +15,12 @@ interface InlineEditProps {
   className?: string;
   displayClassName?: string;
   emptyLabel?: string;
+  disabled?: boolean;
 }
 
 export default function InlineEdit({
   value, onSave, type = 'text', options, placeholder, className,
-  displayClassName, emptyLabel = '—',
+  displayClassName, emptyLabel = '—', disabled = false,
 }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(String(value));
@@ -34,6 +35,14 @@ export default function InlineEdit({
     if (e.key === 'Enter' && type !== 'textarea') commit();
     if (e.key === 'Escape') cancel();
   };
+
+  if (disabled) {
+    return (
+      <span className={cn(displayClassName)}>
+        {value !== '' && value !== null && value !== undefined ? String(value) : emptyLabel}
+      </span>
+    );
+  }
 
   if (editing) {
     const inputCls = 'bg-gray-700 border border-blue-500 rounded px-2 py-0.5 text-white text-xs focus:outline-none';
@@ -70,11 +79,22 @@ export default function InlineEdit({
   );
 }
 
-export function InlineToggle({ value, onToggle, trueLabel, falseLabel, trueClass, falseClass }: {
+export function InlineToggle({ value, onToggle, trueLabel, falseLabel, trueClass, falseClass, disabled }: {
   value: boolean; onToggle: () => void;
   trueLabel: string; falseLabel: string;
   trueClass?: string; falseClass?: string;
+  disabled?: boolean;
 }) {
+  if (disabled) {
+    return (
+      <span className={cn('px-2 py-0.5 rounded border text-xs font-medium',
+        value ? (trueClass ?? 'bg-green-500/20 text-green-400 border-green-500/30') : (falseClass ?? 'bg-gray-700 text-gray-500 border-gray-600')
+      )}>
+        {value ? trueLabel : falseLabel}
+      </span>
+    );
+  }
+
   return (
     <button
       onClick={e => { e.stopPropagation(); onToggle(); }}
