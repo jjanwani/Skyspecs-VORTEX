@@ -35,12 +35,12 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
   ],
   technician: [
     'edit_drone_status', 'edit_drone_notes',
-    'edit_wo_status', 'edit_wo_notes', 'edit_wo_parts',
+    'edit_wo_status', 'edit_wo_notes', 'edit_wo_parts', 'add_work_orders',
     'edit_inventory_counts',
   ],
   engineer: [
     'edit_drone_technical', 'edit_drone_compliance', 'edit_drone_notes',
-    'edit_wo_notes', 'edit_wo_parts',
+    'edit_wo_notes', 'edit_wo_parts', 'add_work_orders',
     'edit_inventory_notes',
   ],
   procurement: [
