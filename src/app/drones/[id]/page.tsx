@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Drone, DroneStatus } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
+import { useAuth } from '@/contexts/AuthContext';
 
 const STATUS_OPTIONS = [
   { value: 'wip_redress', label: 'WIP / Redress' },
@@ -33,6 +34,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params);
   const staticDrone = drones.find(d => d.id === id);
 
+  const { can } = useAuth();
   const [baseDrone, setBaseDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<Drone>>({});
   const [userWOs, setUserWOs] = useState<typeof workOrders>([]);
@@ -108,6 +110,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     options={STATUS_OPTIONS}
                     onSave={v => update('status', v as DroneStatus)}
                     displayClassName={cn('text-xs px-2 py-0.5 rounded border font-medium', getDroneStatusColor(drone.status))}
+                    disabled={!can('edit_drone_status')}
                   />
                 </div>
                 <div className="flex justify-between items-center">
@@ -116,6 +119,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     value={drone.buildVersion}
                     onSave={v => update('buildVersion', v)}
                     displayClassName="text-white font-medium text-xs"
+                    disabled={!can('edit_drone_technical')}
                   />
                 </div>
                 <div className="flex justify-between items-center">
@@ -124,6 +128,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     value={drone.location}
                     onSave={v => update('location', v)}
                     displayClassName="text-white text-xs"
+                    disabled={!can('edit_drone_technical')}
                   />
                 </div>
                 <div className="flex justify-between items-center">
@@ -133,6 +138,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     onSave={v => update('assignedTech', v)}
                     displayClassName="text-white text-xs"
                     emptyLabel="Unassigned"
+                    disabled={!can('edit_drone_technical')}
                   />
                 </div>
                 {drone.deploymentRegion !== undefined && (
@@ -142,6 +148,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                       value={drone.deploymentRegion ?? ''}
                       onSave={v => update('deploymentRegion', v)}
                       displayClassName="text-white text-xs"
+                      disabled={!can('edit_drone_technical')}
                     />
                   </div>
                 )}
@@ -152,6 +159,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     type="number"
                     onSave={v => update('totalFlightHours', Number(v))}
                     displayClassName="text-white text-xs"
+                    disabled={!can('edit_drone_technical')}
                   />
                 </div>
                 {drone.crashHistory > 0 && (
@@ -163,6 +171,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                         type="number"
                         onSave={v => update('crashHistory', Number(v))}
                         displayClassName="text-white text-xs"
+                        disabled={!can('edit_drone_technical')}
                       />
                       <InlineToggle
                         value={drone.rcaCompleted}
@@ -170,6 +179,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                         trueLabel="RCA done"
                         falseLabel="RCA pending"
                         falseClass="bg-red-500/10 text-red-400 border-red-500/20"
+                        disabled={!can('edit_drone_compliance')}
                       />
                     </div>
                   </div>
@@ -183,15 +193,15 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">ECT-52 (7075)</span>
-                  <InlineToggle value={drone.ectCompliance} onToggle={() => update('ectCompliance', !drone.ectCompliance)} trueLabel="Compliant" falseLabel="Not Compliant" />
+                  <InlineToggle value={drone.ectCompliance} onToggle={() => update('ectCompliance', !drone.ectCompliance)} trueLabel="Compliant" falseLabel="Not Compliant" disabled={!can('edit_drone_compliance')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">ECN-199 (NDAA)</span>
-                  <InlineToggle value={drone.ecnCompliance} onToggle={() => update('ecnCompliance', !drone.ecnCompliance)} trueLabel="Compliant" falseLabel="Not Compliant" />
+                  <InlineToggle value={drone.ecnCompliance} onToggle={() => update('ecnCompliance', !drone.ecnCompliance)} trueLabel="Compliant" falseLabel="Not Compliant" disabled={!can('edit_drone_compliance')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-400">FAA Registration</span>
-                  <InlineToggle value={drone.faaRegistration} onToggle={() => update('faaRegistration', !drone.faaRegistration)} trueLabel="Registered" falseLabel="Not Registered" />
+                  <InlineToggle value={drone.faaRegistration} onToggle={() => update('faaRegistration', !drone.faaRegistration)} trueLabel="Registered" falseLabel="Not Registered" disabled={!can('edit_drone_compliance')} />
                 </div>
               </div>
             </div>
@@ -206,6 +216,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                 placeholder="Add notes..."
                 displayClassName={cn('text-xs leading-relaxed', drone.notes ? 'text-amber-300' : 'text-gray-600')}
                 emptyLabel="Click to add notes"
+                disabled={!can('edit_drone_notes')}
               />
             </div>
           </div>
@@ -267,7 +278,7 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </div>
         </div>
-        <p className="text-xs text-gray-600">Hover any field to edit · Changes saved locally</p>
+        <p className="text-xs text-gray-600">{can('edit_drone_status') ? 'Hover any field to edit · Changes saved locally' : 'View only · Contact admin to edit'}</p>
       </div>
     </div>
   );

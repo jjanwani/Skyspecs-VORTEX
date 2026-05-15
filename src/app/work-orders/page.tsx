@@ -13,8 +13,10 @@ import Link from 'next/link';
 import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus } from 'lucide-react';
 import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
 import { getUserWorkOrders } from '@/lib/userDataStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function WorkOrdersPage() {
+  const { can } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<WorkOrderType | 'all'>('all');
@@ -71,12 +73,14 @@ export default function WorkOrdersPage() {
               <Filter className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-xs text-gray-400 font-medium">Filters</span>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Work Order
-            </button>
+            {can('add_work_orders') && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Work Order
+              </button>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">

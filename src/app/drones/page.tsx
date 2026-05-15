@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus } from 'lucide-react';
 import AddDroneModal from '@/components/modals/AddDroneModal';
 import { getUserDrones } from '@/lib/userDataStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ALL_STATUSES: DroneStatus[] = ['field', 'wip_redress', 'returning_field', 'flight_status', 'rca', 'ready_for_deployment', 'in_maintenance'];
 
@@ -20,6 +21,7 @@ function ComplianceDot({ ok }: { ok: boolean }) {
 }
 
 export default function DronesPage() {
+  const { can } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<DroneStatus | 'all'>('all');
   const [userDrones, setUserDrones] = useState<Drone[]>([]);
@@ -83,12 +85,14 @@ export default function DronesPage() {
               );
             })}
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors whitespace-nowrap"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Drone
-          </button>
+          {can('add_drones') && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors whitespace-nowrap"
+            >
+              <Plus className="w-3.5 h-3.5" /> Add Drone
+            </button>
+          )}
         </div>
 
         {/* Drone Grid */}

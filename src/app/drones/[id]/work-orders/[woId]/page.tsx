@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
+import { useAuth } from '@/contexts/AuthContext';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
 
@@ -41,6 +42,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
   const staticWo = workOrders.find(w => w.id === woId);
   const staticDrone = drones.find(d => d.id === id);
 
+  const { can } = useAuth();
   const [baseWo, setBaseWo] = useState<WorkOrder | null>(staticWo ?? null);
   const [drone, setDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<WorkOrder>>({});
@@ -120,12 +122,14 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                   options={PRIORITY_OPTIONS}
                   onSave={v => update('priority', v as WorkOrderPriority)}
                   displayClassName={cn('text-xs px-2 py-1 rounded-lg border font-medium', getPriorityColor(wo.priority))}
+                  disabled={!can('edit_wo_priority')}
                 />
                 {wo.ernReference && (
                   <InlineEdit
                     value={wo.ernReference}
                     onSave={v => update('ernReference', v)}
                     displayClassName="text-xs px-2 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400"
+                    disabled={!can('edit_wo_notes')}
                   />
                 )}
               </div>
@@ -143,35 +147,44 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                   placeholder="Add notes..."
                   displayClassName={cn('text-xs leading-relaxed', wo.notes ? 'text-amber-300' : 'text-gray-600')}
                   emptyLabel="Click to add notes"
+                  disabled={!can('edit_wo_notes')}
                 />
               </div>
             </div>
 
             {/* Status Update */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-white mb-3">Update Status</h3>
-              <div className="flex gap-2 flex-wrap">
-                {STATUS_FLOW.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => update('status', s)}
-                    className={cn(
-                      'px-4 py-2 rounded-lg text-xs font-medium border transition-all',
-                      wo.status === s
-                        ? getWorkOrderStatusColor(s).replace('/20', '/30').replace('/30', '/50')
-                        : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white'
-                    )}
-                  >
-                    {getWorkOrderStatusLabel(s)}
-                  </button>
-                ))}
-              </div>
-              <div className="mt-3">
-                <span className="text-xs text-gray-500">Current: </span>
-                <span className={cn('text-xs px-2 py-0.5 rounded border', getWorkOrderStatusColor(wo.status))}>
+              <h3 className="text-sm font-semibold text-white mb-3">Status</h3>
+              {can('edit_wo_status') ? (
+                <>
+                  <div className="flex gap-2 flex-wrap">
+                    {STATUS_FLOW.map(s => (
+                      <button
+                        key={s}
+                        onClick={() => update('status', s)}
+                        className={cn(
+                          'px-4 py-2 rounded-lg text-xs font-medium border transition-all',
+                          wo.status === s
+                            ? getWorkOrderStatusColor(s).replace('/20', '/30').replace('/30', '/50')
+                            : 'border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white'
+                        )}
+                      >
+                        {getWorkOrderStatusLabel(s)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-3">
+                    <span className="text-xs text-gray-500">Current: </span>
+                    <span className={cn('text-xs px-2 py-0.5 rounded border', getWorkOrderStatusColor(wo.status))}>
+                      {getWorkOrderStatusLabel(wo.status)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <span className={cn('text-xs px-2 py-1 rounded-lg border', getWorkOrderStatusColor(wo.status))}>
                   {getWorkOrderStatusLabel(wo.status)}
                 </span>
-              </div>
+              )}
             </div>
 
             {/* Parts Required */}
@@ -200,6 +213,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                               partStatus === 'on_order' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
                                 'bg-red-500/10 text-red-400 border-red-500/20'
                           )}
+                          disabled={!can('edit_wo_parts')}
                         />
                       </div>
                     );
@@ -279,6 +293,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                     onSave={v => update('assignedTech', v)}
                     displayClassName="text-white"
                     emptyLabel="Unassigned"
+                    disabled={!can('edit_wo_assigned_tech')}
                   />
                 </div>
                 <div className="flex justify-between items-center">
@@ -289,6 +304,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                       type="number"
                       onSave={v => update('estimatedHours', Number(v))}
                       displayClassName="text-white"
+                      disabled={!can('edit_wo_hours')}
                     />
                     <span className="text-gray-500">h</span>
                   </div>
@@ -302,6 +318,7 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                       onSave={v => update('actualHours', Number(v))}
                       displayClassName="text-white"
                       emptyLabel="—"
+                      disabled={!can('edit_wo_hours')}
                     />
                     <span className="text-gray-500">h</span>
                   </div>
