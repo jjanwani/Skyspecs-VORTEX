@@ -25,6 +25,7 @@ jobs:
         run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /skyspecs-work_order_hub
+          NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
