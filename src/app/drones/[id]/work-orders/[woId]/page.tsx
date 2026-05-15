@@ -1,5 +1,7 @@
 'use client';
 
+'use client';
+
 import { useState, useEffect, use } from 'react';
 import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
@@ -14,9 +16,10 @@ import {
 } from '@/lib/utils';
 import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
-  History, Package, MessageSquare, FileText, ChevronRight, AlertCircle
+  History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
+  Plus, X, Circle, CheckCircle, Loader2, Trash2, ListChecks
 } from 'lucide-react';
-import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
+import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, Task, TaskStatus } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -47,6 +50,10 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
   const [drone, setDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<WorkOrder>>({});
   const [partStatusEdits, setPartStatusEdits] = useState<Record<number, PartStatus>>({});
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [showAddTask, setShowAddTask] = useState(false);
   const [ready, setReady] = useState(!!(staticWo && staticDrone));
 
   useEffect(() => {
@@ -54,6 +61,8 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
     if (saved) setEdits(JSON.parse(saved));
     const savedParts = localStorage.getItem(`workorder-parts-${woId}`);
     if (savedParts) setPartStatusEdits(JSON.parse(savedParts));
+    const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (!staticWo) {
       const userWOs: WorkOrder[] = JSON.parse(localStorage.getItem('user-workorders') || '[]');
       const found = userWOs.find(w => w.id === woId);
@@ -66,6 +75,39 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
     }
     setReady(true);
   }, [woId, id]);
+
+  const saveTasks = (updated: Task[]) => {
+    setTasks(updated);
+    localStorage.setItem(`workorder-tasks-${woId}`, JSON.stringify(updated));
+  };
+
+  const addTask = () => {
+    if (!newTaskTitle.trim()) return;
+    const task: Task = {
+      id: `task-${Date.now()}`,
+      title: newTaskTitle.trim(),
+      assignee: newTaskAssignee.trim() || undefined,
+      status: 'todo',
+      createdAt: new Date().toISOString(),
+    };
+    saveTasks([...tasks, task]);
+    setNewTaskTitle('');
+    setNewTaskAssignee('');
+    setShowAddTask(false);
+  };
+
+  const cycleTaskStatus = (taskId: string) => {
+    const cycle: TaskStatus[] = ['todo', 'in_progress', 'done'];
+    saveTasks(tasks.map(t => {
+      if (t.id !== taskId) return t;
+      const next = cycle[(cycle.indexOf(t.status) + 1) % cycle.length];
+      return { ...t, status: next, completedAt: next === 'done' ? new Date().toISOString() : undefined };
+    }));
+  };
+
+  const deleteTask = (taskId: string) => {
+    saveTasks(tasks.filter(t => t.id !== taskId));
+  };
 
   if (!ready) return <div className="p-6 text-gray-500 text-sm">Loading...</div>;
   if (!baseWo || !drone) return notFound();
@@ -184,6 +226,128 @@ export default function WorkOrderPage({ params }: { params: Promise<{ id: string
                 <span className={cn('text-xs px-2 py-1 rounded-lg border', getWorkOrderStatusColor(wo.status))}>
                   {getWorkOrderStatusLabel(wo.status)}
                 </span>
+              )}
+            </div>
+
+            {/* Tasks */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                  <ListChecks className="w-4 h-4 text-blue-400" />
+                  Tasks
+                  {tasks.length > 0 && (
+                    <span className="text-xs text-gray-500">
+                      {tasks.filter(t => t.status === 'done').length}/{tasks.length} done
+                    </span>
+                  )}
+                </h3>
+                {can('edit_wo_notes') && (
+                  <button
+                    onClick={() => setShowAddTask(s => !s)}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add task
+                  </button>
+                )}
+              </div>
+
+              {/* Progress bar */}
+              {tasks.length > 0 && (
+                <div className="mb-4">
+                  <div className="w-full bg-gray-800 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all"
+                      style={{ width: `${(tasks.filter(t => t.status === 'done').length / tasks.length) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Add task form */}
+              {showAddTask && (
+                <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-700 space-y-2">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="Task title..."
+                    value={newTaskTitle}
+                    onChange={e => setNewTaskTitle(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setShowAddTask(false); }}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Assignee (optional)"
+                    value={newTaskAssignee}
+                    onChange={e => setNewTaskAssignee(e.target.value)}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={addTask}
+                      disabled={!newTaskTitle.trim()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-lg text-xs text-white font-medium transition-colors"
+                    >
+                      Add
+                    </button>
+                    <button
+                      onClick={() => { setShowAddTask(false); setNewTaskTitle(''); setNewTaskAssignee(''); }}
+                      className="px-3 py-1.5 border border-gray-600 rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Task list */}
+              {tasks.length === 0 && !showAddTask ? (
+                <p className="text-xs text-gray-600 text-center py-4">No tasks yet — click "Add task" to create one</p>
+              ) : (
+                <div className="space-y-1">
+                  {tasks.map(task => (
+                    <div
+                      key={task.id}
+                      className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-800/50 group transition-colors"
+                    >
+                      <button
+                        onClick={() => can('edit_wo_status') && cycleTaskStatus(task.id)}
+                        className="flex-shrink-0 transition-colors"
+                        title={can('edit_wo_status') ? 'Click to advance status' : undefined}
+                      >
+                        {task.status === 'done' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                        {task.status === 'in_progress' && <Loader2 className="w-4 h-4 text-amber-400" />}
+                        {task.status === 'todo' && <Circle className="w-4 h-4 text-gray-600 hover:text-gray-400" />}
+                      </button>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn('text-sm', task.status === 'done' ? 'text-gray-500 line-through' : 'text-white')}>
+                          {task.title}
+                        </p>
+                        {task.assignee && (
+                          <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                            <User className="w-3 h-3" />
+                            {task.assignee}
+                          </p>
+                        )}
+                      </div>
+                      <span className={cn('text-xs px-1.5 py-0.5 rounded border flex-shrink-0',
+                        task.status === 'done' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                        task.status === 'in_progress' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                        'bg-gray-700 text-gray-500 border-gray-600'
+                      )}>
+                        {task.status === 'in_progress' ? 'In Progress' : task.status === 'done' ? 'Done' : 'To Do'}
+                      </span>
+                      {can('edit_wo_notes') && (
+                        <button
+                          onClick={() => deleteTask(task.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 

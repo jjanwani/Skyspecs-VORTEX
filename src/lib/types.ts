@@ -11,6 +11,18 @@ export type WorkOrderType = 'maintenance' | 'upgrade' | 'issue' | 'rca';
 export type WorkOrderStatus = 'open' | 'in_progress' | 'completed' | 'on_hold';
 export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'critical';
 
+export type TaskStatus = 'todo' | 'in_progress' | 'done';
+
+export interface Task {
+  id: string;
+  title: string;
+  description?: string;
+  status: TaskStatus;
+  assignee?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
 export type SFSyncStatus = 'synced' | 'pending' | 'error' | 'not_synced';
 
 export interface SFSyncMeta {
@@ -45,6 +57,7 @@ export interface WorkOrder extends SFSyncMeta {
   source?: 'platform' | 'slack' | 'salesforce';
   salesforceProjectId?: string;
   salesforceProjectName?: string;
+  tasks?: Task[];
 }
 
 export interface Drone extends SFSyncMeta {
