@@ -184,6 +184,16 @@ export default function DroneDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                   </div>
                 )}
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500">SF Asset ID</span>
+                  <InlineEdit
+                    value={drone.salesforceAssetId ?? ''}
+                    onSave={v => update('salesforceAssetId', v)}
+                    displayClassName="text-white text-xs"
+                    emptyLabel="Not linked"
+                    disabled={!can('edit_drone_technical')}
+                  />
+                </div>
               </div>
             </div>
 

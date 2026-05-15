@@ -12,6 +12,7 @@ import {
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import AddInventoryModal from '@/components/modals/AddInventoryModal';
 import { getUserInventory } from '@/lib/userDataStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 type SortKey = 'name' | 'category' | 'currentCount' | 'minQty' | 'usageRatePerWeek' | 'discrepancy';
 type SortDir = 'asc' | 'desc';
@@ -49,6 +50,7 @@ function StockBar({ current, min, max }: { current: number; min: number; max: nu
 type ItemOverrides = Partial<Pick<InventoryItem, 'currentCount' | 'pipoStatus' | 'incoming' | 'assignedTech' | 'location' | 'notes' | 'repurchaseFlag'>>;
 
 export default function InventoryPage() {
+  const { can } = useAuth();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<InventoryCategory | 'all'>('all');
   const [pipoFilter, setPipoFilter] = useState<PIPOStatus | 'all'>('all');
@@ -204,12 +206,14 @@ export default function InventoryPage() {
               <Filter className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-xs text-gray-400 font-medium">Filter & Search</span>
             </div>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Item
-            </button>
+            {can('add_inventory') && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add Item
+              </button>
+            )}
           </div>
           <div className="flex gap-3 flex-col sm:flex-row">
             <div className="relative flex-1">
@@ -331,6 +335,7 @@ export default function InventoryPage() {
                             onSave={v => updateItemField(item.id, 'assignedTech', v)}
                             displayClassName="text-gray-400"
                             emptyLabel="—"
+                            disabled={!can('edit_inventory_counts')}
                           />
                         </td>
                         <td className="px-4 py-3 min-w-[140px]">
@@ -347,37 +352,42 @@ export default function InventoryPage() {
                                 type="number"
                                 onSave={v => updateItemField(item.id, 'currentCount', Number(v))}
                                 displayClassName={cn('text-xs font-medium tabular-nums', item.currentCount === 0 ? 'text-red-400' : isLow ? 'text-amber-400' : 'text-white')}
+                                disabled={!can('edit_inventory_counts')}
                               />
                             </div>
                             <div className="flex items-center gap-1 mt-0.5">
-                              {editingMinQty === item.id ? (
-                                <div className="flex items-center gap-1">
-                                  <input
-                                    autoFocus
-                                    type="number"
-                                    value={editMinQtyVal}
-                                    onChange={e => setEditMinQtyVal(e.target.value)}
-                                    onKeyDown={e => {
-                                      if (e.key === 'Enter') saveMinQty(item.id, editMinQtyVal);
-                                      if (e.key === 'Escape') setEditingMinQty(null);
-                                    }}
-                                    className="w-14 px-1 py-0.5 bg-gray-700 border border-blue-500 rounded text-white text-xs"
-                                  />
-                                  <button onClick={() => saveMinQty(item.id, editMinQtyVal)} className="text-green-400 hover:text-green-300">
-                                    <Check className="w-3 h-3" />
+                              {can('edit_inventory_min') ? (
+                                editingMinQty === item.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      autoFocus
+                                      type="number"
+                                      value={editMinQtyVal}
+                                      onChange={e => setEditMinQtyVal(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') saveMinQty(item.id, editMinQtyVal);
+                                        if (e.key === 'Escape') setEditingMinQty(null);
+                                      }}
+                                      className="w-14 px-1 py-0.5 bg-gray-700 border border-blue-500 rounded text-white text-xs"
+                                    />
+                                    <button onClick={() => saveMinQty(item.id, editMinQtyVal)} className="text-green-400 hover:text-green-300">
+                                      <Check className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => setEditingMinQty(null)} className="text-gray-500 hover:text-gray-300">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 group/min"
+                                    onClick={e => { e.stopPropagation(); setEditingMinQty(item.id); setEditMinQtyVal(String(item.minQty)); }}
+                                  >
+                                    <span>min: {item.minQty}</span>
+                                    <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/min:opacity-100 transition-opacity" />
                                   </button>
-                                  <button onClick={() => setEditingMinQty(null)} className="text-gray-500 hover:text-gray-300">
-                                    <X className="w-3 h-3" />
-                                  </button>
-                                </div>
+                                )
                               ) : (
-                                <button
-                                  className="flex items-center gap-0.5 text-gray-600 hover:text-gray-400 group/min"
-                                  onClick={e => { e.stopPropagation(); setEditingMinQty(item.id); setEditMinQtyVal(String(item.minQty)); }}
-                                >
-                                  <span>min: {item.minQty}</span>
-                                  <Pencil className="w-2.5 h-2.5 opacity-0 group-hover/min:opacity-100 transition-opacity" />
-                                </button>
+                                <span className="text-gray-600">min: {item.minQty}</span>
                               )}
                               {minQtyOverrides[item.id] !== undefined && (
                                 <span className="text-blue-400 text-xs">*</span>
@@ -392,6 +402,7 @@ export default function InventoryPage() {
                             options={PIPO_OPTIONS}
                             onSave={v => updateItemField(item.id, 'pipoStatus', v as PIPOStatus)}
                             displayClassName={cn('px-1.5 py-0.5 rounded border text-xs', getPIPOStatusColor(item.pipoStatus))}
+                            disabled={!can('edit_inventory_status')}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -408,6 +419,7 @@ export default function InventoryPage() {
                             onSave={v => updateItemField(item.id, 'incoming', Number(v))}
                             displayClassName={cn(item.incoming > 0 ? 'text-blue-400' : 'text-gray-600')}
                             emptyLabel="—"
+                            disabled={!can('edit_inventory_counts')}
                           />
                         </td>
                         <td className="px-4 py-3">
@@ -428,6 +440,7 @@ export default function InventoryPage() {
                                   onSave={v => updateItemField(item.id, 'location', v)}
                                   displayClassName="text-white"
                                   emptyLabel="—"
+                                  disabled={!can('edit_inventory_counts')}
                                 />
                               </div>
                               <div>
@@ -476,6 +489,7 @@ export default function InventoryPage() {
                                   trueLabel="Flagged"
                                   falseLabel="Not flagged"
                                   trueClass="bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                  disabled={!can('edit_inventory_status')}
                                 />
                               </div>
                               {/* Purchase Link */}
@@ -508,11 +522,13 @@ export default function InventoryPage() {
                                       <ExternalLink className="w-3 h-3 flex-shrink-0" />
                                       <span className="truncate">{purchaseLink}</span>
                                     </a>
-                                    <button onClick={() => { setEditingPurchaseLink(item.id); setEditPurchaseLinkVal(purchaseLink); }} className="text-gray-600 hover:text-gray-400 ml-1">
-                                      <Pencil className="w-3 h-3" />
-                                    </button>
+                                    {can('edit_purchase_links') && (
+                                      <button onClick={() => { setEditingPurchaseLink(item.id); setEditPurchaseLinkVal(purchaseLink); }} className="text-gray-600 hover:text-gray-400 ml-1">
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                    )}
                                   </div>
-                                ) : (
+                                ) : can('edit_purchase_links') ? (
                                   <button
                                     onClick={() => { setEditingPurchaseLink(item.id); setEditPurchaseLinkVal(''); }}
                                     className="text-gray-600 hover:text-blue-400 flex items-center gap-1 transition-colors"
@@ -520,6 +536,8 @@ export default function InventoryPage() {
                                     <Pencil className="w-3 h-3" />
                                     <span>Add purchase link</span>
                                   </button>
+                                ) : (
+                                  <span className="text-gray-600">—</span>
                                 )}
                               </div>
                               <div className="col-span-2 md:col-span-4" onClick={e => e.stopPropagation()}>
@@ -531,6 +549,7 @@ export default function InventoryPage() {
                                   placeholder="Add notes..."
                                   displayClassName={cn('leading-relaxed', item.notes ? 'text-amber-300' : 'text-gray-600')}
                                   emptyLabel="Click to add notes"
+                                  disabled={!can('edit_inventory_notes')}
                                 />
                               </div>
                             </div>

@@ -163,7 +163,18 @@ export default function WorkOrdersPage() {
                 className="grid grid-cols-12 gap-0 px-4 py-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition-colors group items-center"
               >
                 <div className="col-span-1">
-                  <span className="text-xs font-mono text-gray-500">{wo.id}</span>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs font-mono text-gray-500">{wo.id}</span>
+                    {wo.source === 'slack' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded border bg-purple-500/10 border-purple-500/20 text-purple-400 w-fit">Slack</span>
+                    )}
+                    {wo.source === 'salesforce' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded border bg-blue-500/10 border-blue-500/20 text-blue-400 w-fit">SF</span>
+                    )}
+                    {wo.source === 'platform' && (
+                      <span className="text-xs px-1.5 py-0.5 rounded border bg-gray-700 border-gray-600 text-gray-400 w-fit">Manual</span>
+                    )}
+                  </div>
                 </div>
                 <div className="col-span-4 min-w-0">
                   <p className="text-xs font-medium text-white truncate group-hover:text-blue-400 transition-colors">{wo.title}</p>
