@@ -73,7 +73,7 @@ export default function LoginPage() {
   }, [scriptReady]);
 
   // No Client ID configured — fall back to the mock email flow
-  if (!CLIENT_ID) return <MockLogin />;
+  if (!CLIENT_ID) return <EmailLogin />;
 
   return (
     <>
@@ -131,7 +131,7 @@ export default function LoginPage() {
 }
 
 // Shown locally when NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set
-function MockLogin() {
+function EmailLogin() {
   const router = useRouter();
   const { login } = useAuth();
   const [email, setEmail] = useState('');
@@ -168,10 +168,7 @@ function MockLogin() {
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
           {!denied ? (
             <>
-              <p className="text-sm text-gray-400 text-center">Sign in with your email</p>
-              <div className="text-xs text-amber-500/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 text-center">
-                Dev mode — Google OAuth not configured
-              </div>
+              <p className="text-sm text-gray-400 text-center">Sign in with your account</p>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <input
                   type="email"
