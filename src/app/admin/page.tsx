@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPlatformUsers, savePlatformUsers, PlatformUser } from '@/lib/userStore';
@@ -120,8 +120,8 @@ export default function AdminPage() {
               </thead>
               <tbody>
                 {PERMISSION_GROUPS.map(group => (
-                  <>
-                    <tr key={group.label} className="border-b border-gray-800/50">
+                  <React.Fragment key={group.label}>
+                    <tr className="border-b border-gray-800/50">
                       <td colSpan={7} className="py-2 text-gray-400 font-semibold text-xs uppercase tracking-wide">
                         {group.label}
                       </td>
@@ -142,7 +142,7 @@ export default function AdminPage() {
                         })}
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
