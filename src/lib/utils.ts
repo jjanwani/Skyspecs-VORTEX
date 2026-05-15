@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DroneStatus, WorkOrderStatus, WorkOrderType, WorkOrderPriority, PIPOStatus } from '@/lib/types';
+import { DroneStatus, WorkOrderStatus, WorkOrderType, WorkOrderPriority, PIPOStatus, SFSyncStatus } from '@/lib/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -108,4 +108,34 @@ export function formatDate(dateString: string): string {
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+export function getSFSyncLabel(status: SFSyncStatus | undefined): string {
+  const labels: Record<SFSyncStatus, string> = {
+    synced: 'SF Synced',
+    pending: 'Sync Pending',
+    error: 'Sync Error',
+    not_synced: 'Not in SF',
+  };
+  return labels[status ?? 'synced'];
+}
+
+export function getSFSyncColor(status: SFSyncStatus | undefined): string {
+  const colors: Record<SFSyncStatus, string> = {
+    synced: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    pending: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    error: 'bg-red-500/10 text-red-400 border-red-500/30',
+    not_synced: 'bg-gray-500/10 text-gray-500 border-gray-600/30',
+  };
+  return colors[status ?? 'synced'];
+}
+
+export function getSFSyncDot(status: SFSyncStatus | undefined): string {
+  const dots: Record<SFSyncStatus, string> = {
+    synced: 'bg-emerald-400',
+    pending: 'bg-amber-400 animate-pulse',
+    error: 'bg-red-400',
+    not_synced: 'bg-gray-600',
+  };
+  return dots[status ?? 'synced'];
 }

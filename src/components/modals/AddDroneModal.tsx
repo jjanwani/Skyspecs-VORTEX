@@ -55,6 +55,8 @@ export default function AddDroneModal({ onAdd, onClose }: Props) {
       crashHistory: 0,
       rcaCompleted: false,
       notes: notes.trim() || undefined,
+      sfSyncStatus: 'pending',
+      sfObject: 'Asset',
     };
 
     const existing = getUserDrones();

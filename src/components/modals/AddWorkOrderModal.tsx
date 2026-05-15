@@ -55,6 +55,9 @@ export default function AddWorkOrderModal({ onAdd, onClose }: Props) {
       completionHistory: [],
       ernReference: ernReference.trim() || undefined,
       notes: notes.trim() || undefined,
+      source: 'platform',
+      sfSyncStatus: 'pending',
+      sfObject: 'WorkOrder',
     };
 
     const existing = getUserWorkOrders();

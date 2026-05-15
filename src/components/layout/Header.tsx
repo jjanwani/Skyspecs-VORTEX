@@ -200,6 +200,12 @@ export default function Header({ title, subtitle }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-1">
+          {/* SF connection indicator */}
+          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg mr-1" title="Salesforce connected · bi-directional sync active">
+            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+            <span className="text-xs text-emerald-400 font-medium">SF Live</span>
+          </div>
+
           {/* Search */}
           <button
             onClick={() => setSearchOpen(true)}

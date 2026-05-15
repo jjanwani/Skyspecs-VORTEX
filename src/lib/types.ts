@@ -11,7 +11,16 @@ export type WorkOrderType = 'maintenance' | 'upgrade' | 'issue' | 'rca';
 export type WorkOrderStatus = 'open' | 'in_progress' | 'completed' | 'on_hold';
 export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'critical';
 
-export interface WorkOrder {
+export type SFSyncStatus = 'synced' | 'pending' | 'error' | 'not_synced';
+
+export interface SFSyncMeta {
+  sfId?: string;           // Salesforce record ID (18-char)
+  sfSyncStatus?: SFSyncStatus;
+  sfLastSynced?: string;   // ISO timestamp of last successful sync
+  sfObject?: string;       // e.g. 'WorkOrder', 'Asset', 'Inventory_Item__c'
+}
+
+export interface WorkOrder extends SFSyncMeta {
   id: string;
   droneId: string;
   droneName: string;
@@ -38,7 +47,7 @@ export interface WorkOrder {
   salesforceProjectName?: string;
 }
 
-export interface Drone {
+export interface Drone extends SFSyncMeta {
   id: string;
   name: string;
   version: string;
@@ -73,7 +82,7 @@ export type InventoryCategory =
 
 export type PIPOStatus = 'in_stock' | 'on_order' | 'depleted' | 'low_stock';
 
-export interface InventoryItem {
+export interface InventoryItem extends SFSyncMeta {
   id: string;
   name: string;
   category: InventoryCategory;

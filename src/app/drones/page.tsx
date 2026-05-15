@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import { drones as baseDrones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { Drone, DroneStatus } from '@/lib/types';
-import { getDroneStatusColor, getDroneStatusLabel, cn } from '@/lib/utils';
+import { getDroneStatusColor, getDroneStatusLabel, getSFSyncColor, getSFSyncDot, getSFSyncLabel, cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus } from 'lucide-react';
 import AddDroneModal from '@/components/modals/AddDroneModal';
@@ -170,13 +170,10 @@ export default function DronesPage() {
                       <span>FAA</span>
                     </div>
                   </div>
-                  {drone.crashHistory > 0 && (
-                    <span className={cn('text-xs px-2 py-0.5 rounded border',
-                      drone.rcaCompleted ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'
-                    )}>
-                      {drone.crashHistory} crash · {drone.rcaCompleted ? 'RCA done' : 'RCA pending'}
-                    </span>
-                  )}
+                  <span className={cn('inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border', getSFSyncColor(drone.sfSyncStatus))}>
+                    <span className={cn('w-1.5 h-1.5 rounded-full', getSFSyncDot(drone.sfSyncStatus))} />
+                    {getSFSyncLabel(drone.sfSyncStatus)}
+                  </span>
                 </div>
               </Link>
             );

@@ -7,7 +7,7 @@ import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/
 import {
   getWorkOrderStatusColor, getWorkOrderStatusLabel,
   getWorkOrderTypeColor, getWorkOrderTypeLabel,
-  getPriorityColor, formatDate, cn
+  getPriorityColor, getSFSyncColor, getSFSyncDot, formatDate, cn
 } from '@/lib/utils';
 import Link from 'next/link';
 import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus } from 'lucide-react';
@@ -143,12 +143,13 @@ export default function WorkOrdersPage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
           <div className="grid grid-cols-12 gap-0 px-4 py-2.5 border-b border-gray-800 text-xs text-gray-500 font-medium uppercase tracking-wide">
             <div className="col-span-1">ID</div>
-            <div className="col-span-4">Title / Drone</div>
+            <div className="col-span-3">Title / Drone</div>
             <div className="col-span-2">Type</div>
             <div className="col-span-2">Status</div>
             <div className="col-span-1">Priority</div>
             <div className="col-span-1">Tech</div>
             <div className="col-span-1">Hours</div>
+            <div className="col-span-1">SF</div>
           </div>
           {sortedFiltered.length === 0 ? (
             <div className="text-center py-12 text-gray-500">
@@ -162,21 +163,19 @@ export default function WorkOrdersPage() {
                 href={`/drones/${wo.droneId}/work-orders/${wo.id}`}
                 className="grid grid-cols-12 gap-0 px-4 py-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition-colors group items-center"
               >
-                <div className="col-span-1">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-xs font-mono text-gray-500">{wo.id}</span>
-                    {wo.source === 'slack' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded border bg-purple-500/10 border-purple-500/20 text-purple-400 w-fit">Slack</span>
-                    )}
-                    {wo.source === 'salesforce' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded border bg-blue-500/10 border-blue-500/20 text-blue-400 w-fit">SF</span>
-                    )}
-                    {wo.source === 'platform' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded border bg-gray-700 border-gray-600 text-gray-400 w-fit">Manual</span>
-                    )}
-                  </div>
+                <div className="col-span-1 flex flex-col gap-1">
+                  <span className="text-xs font-mono text-gray-500">{wo.id}</span>
+                  {wo.source === 'slack' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded border bg-purple-500/10 border-purple-500/20 text-purple-400 w-fit">Slack</span>
+                  )}
+                  {wo.source === 'salesforce' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded border bg-blue-500/10 border-blue-500/20 text-blue-400 w-fit">SF</span>
+                  )}
+                  {wo.source === 'platform' && (
+                    <span className="text-xs px-1.5 py-0.5 rounded border bg-gray-700 border-gray-600 text-gray-400 w-fit">Manual</span>
+                  )}
                 </div>
-                <div className="col-span-4 min-w-0">
+                <div className="col-span-3 min-w-0">
                   <p className="text-xs font-medium text-white truncate group-hover:text-blue-400 transition-colors">{wo.title}</p>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     <span className="text-xs text-gray-500">{wo.droneName}</span>
@@ -213,6 +212,11 @@ export default function WorkOrdersPage() {
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {wo.estimatedHours}h
+                  </span>
+                </div>
+                <div className="col-span-1">
+                  <span className={cn('inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border', getSFSyncColor(wo.sfSyncStatus))}>
+                    <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', getSFSyncDot(wo.sfSyncStatus))} />
                   </span>
                 </div>
               </Link>

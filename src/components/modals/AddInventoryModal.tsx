@@ -67,6 +67,8 @@ export default function AddInventoryModal({ onAdd, onClose }: Props) {
       repurchaseCount: 0,
       notes: notes.trim() || undefined,
       purchaseLink: purchaseLink.trim() || undefined,
+      sfSyncStatus: 'pending',
+      sfObject: 'Inventory_Item__c',
     };
 
     const existing = getUserInventory();
