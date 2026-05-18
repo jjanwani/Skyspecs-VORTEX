@@ -137,7 +137,7 @@ export default function DroneDetailClient({ id }: { id: string }) {
                   />
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-1"><User className="w-3 h-3" /> Assigned Tech</span>
+                  <span className="text-gray-500 flex items-center gap-1"><User className="w-3 h-3" /> Assigned</span>
                   <InlineEdit
                     value={drone.assignedTech ?? ''}
                     onSave={v => update('assignedTech', v)}

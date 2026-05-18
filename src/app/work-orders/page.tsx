@@ -10,8 +10,9 @@ import {
   getPriorityColor, getSFSyncColor, getSFSyncDot, formatDate, cn
 } from '@/lib/utils';
 import Link from 'next/link';
-import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus } from 'lucide-react';
+import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus, Copy } from 'lucide-react';
 import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
+import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 import { getUserWorkOrders } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -23,6 +24,7 @@ export default function WorkOrdersPage() {
   const [priorityFilter, setPriorityFilter] = useState<WorkOrderPriority | 'all'>('all');
   const [userWorkOrders, setUserWorkOrders] = useState<WorkOrder[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [duplicateSource, setDuplicateSource] = useState<WorkOrder | null>(null);
 
   useEffect(() => {
     setUserWorkOrders(getUserWorkOrders());
@@ -33,7 +35,7 @@ export default function WorkOrdersPage() {
   const filtered = allWorkOrders.filter(wo => {
     const matchSearch = !search || wo.title.toLowerCase().includes(search.toLowerCase()) ||
       wo.droneName.toLowerCase().includes(search.toLowerCase()) ||
-      wo.assignedTech.toLowerCase().includes(search.toLowerCase()) ||
+      (wo.assignedTech ?? '').toLowerCase().includes(search.toLowerCase()) ||
       (wo.ernReference?.toLowerCase().includes(search.toLowerCase()));
     const matchStatus = statusFilter === 'all' || wo.status === statusFilter;
     const matchType = typeFilter === 'all' || wo.type === typeFilter;
@@ -147,7 +149,7 @@ export default function WorkOrdersPage() {
             <div className="col-span-2">Type</div>
             <div className="col-span-2">Status</div>
             <div className="col-span-1">Priority</div>
-            <div className="col-span-1">Tech</div>
+            <div className="col-span-1">Assigned</div>
             <div className="col-span-1">Hours</div>
             <div className="col-span-1">SF</div>
           </div>
@@ -158,11 +160,12 @@ export default function WorkOrdersPage() {
             </div>
           ) : (
             sortedFiltered.map(wo => (
+              <div key={wo.id} className="grid grid-cols-12 gap-0 px-4 py-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition-colors group items-center relative">
               <Link
-                key={wo.id}
                 href={`/drones/${wo.droneId}/work-orders/${wo.id}`}
-                className="grid grid-cols-12 gap-0 px-4 py-3 border-b border-gray-800 last:border-0 hover:bg-gray-800/50 transition-colors group items-center"
-              >
+                className="absolute inset-0"
+                aria-label={wo.title}
+              />
                 <div className="col-span-1 flex flex-col gap-1">
                   <span className="text-xs font-mono text-gray-500">{wo.id}</span>
                   {wo.source === 'slack' && (
@@ -205,7 +208,7 @@ export default function WorkOrdersPage() {
                 <div className="col-span-1">
                   <span className="text-xs text-gray-400 flex items-center gap-1">
                     <User className="w-3 h-3" />
-                    {wo.assignedTech}
+                    {wo.assignedTech || '—'}
                   </span>
                 </div>
                 <div className="col-span-1">
@@ -214,12 +217,21 @@ export default function WorkOrdersPage() {
                     {wo.estimatedHours}h
                   </span>
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-1 flex items-center gap-1.5 relative z-10">
                   <span className={cn('inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border', getSFSyncColor(wo.sfSyncStatus))}>
                     <span className={cn('w-1.5 h-1.5 rounded-full flex-shrink-0', getSFSyncDot(wo.sfSyncStatus))} />
                   </span>
+                  {can('add_work_orders') && (
+                    <button
+                      onClick={e => { e.preventDefault(); setDuplicateSource(wo); }}
+                      title="Duplicate to drones"
+                      className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-blue-400 transition-all"
+                    >
+                      <Copy className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
-              </Link>
+              </div>
             ))
           )}
         </div>
@@ -228,11 +240,22 @@ export default function WorkOrdersPage() {
 
       {showAddModal && (
         <AddWorkOrderModal
+          existingWorkOrders={allWorkOrders}
           onAdd={newWO => {
             setUserWorkOrders(prev => [...prev, newWO]);
             setShowAddModal(false);
           }}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+      {duplicateSource && (
+        <DuplicateWorkOrderModal
+          sourceWO={duplicateSource}
+          onDuplicate={created => {
+            setUserWorkOrders(prev => [...prev, ...created]);
+            setDuplicateSource(null);
+          }}
+          onClose={() => setDuplicateSource(null)}
         />
       )}
     </div>

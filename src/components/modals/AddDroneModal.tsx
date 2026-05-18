@@ -158,10 +158,10 @@ export default function AddDroneModal({ onAdd, onClose }: Props) {
           </div>
 
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Assigned Tech</label>
+            <label className="block text-xs text-gray-400 mb-1">Assigned</label>
             <input
               type="text"
-              placeholder="Tech name"
+              placeholder="Name or team"
               value={assignedTech}
               onChange={e => setAssignedTech(e.target.value)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"

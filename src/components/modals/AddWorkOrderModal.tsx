@@ -1,60 +1,99 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, ChevronRight, ClipboardList, Sparkles } from 'lucide-react';
 import { WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
 import { getUserWorkOrders, saveUserWorkOrders } from '@/lib/userDataStore';
+import { getWorkOrderTypeLabel } from '@/lib/utils';
 
 interface Props {
+  existingWorkOrders: WorkOrder[];
   onAdd: (wo: WorkOrder) => void;
   onClose: () => void;
 }
 
-export default function AddWorkOrderModal({ onAdd, onClose }: Props) {
-  const [title, setTitle] = useState('');
-  const [droneName, setDroneName] = useState('');
-  const [type, setType] = useState<WorkOrderType>('maintenance');
-  const [priority, setPriority] = useState<WorkOrderPriority>('medium');
-  const [status, setStatus] = useState<WorkOrderStatus>('open');
-  const [assignedTech, setAssignedTech] = useState('');
-  const [estimatedHours, setEstimatedHours] = useState(1);
-  const [description, setDescription] = useState('');
-  const [ernReference, setErnReference] = useState('');
-  const [notes, setNotes] = useState('');
+type Step = 'pick' | 'form';
+
+function blankForm() {
+  return {
+    title: '', droneName: '', type: 'maintenance' as WorkOrderType,
+    priority: 'medium' as WorkOrderPriority, status: 'open' as WorkOrderStatus,
+    assigned: '', estimatedHours: 1, description: '', ernReference: '', notes: '',
+    parts: [] as WorkOrder['parts'],
+  };
+}
+
+function templateToForm(wo: WorkOrder) {
+  return {
+    title: wo.title,
+    droneName: '',
+    type: wo.type,
+    priority: wo.priority,
+    status: 'open' as WorkOrderStatus,
+    assigned: wo.assignedTech ?? '',
+    estimatedHours: wo.estimatedHours,
+    description: wo.description,
+    ernReference: wo.ernReference ?? '',
+    notes: wo.notes ?? '',
+    parts: wo.parts ? wo.parts.map(p => ({ ...p })) : [],
+  };
+}
+
+export default function AddWorkOrderModal({ existingWorkOrders, onAdd, onClose }: Props) {
+  const [step, setStep] = useState<Step>('pick');
+  const [form, setForm] = useState(blankForm());
+  const [templateLabel, setTemplateLabel] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const handleEscape = useCallback((e: KeyboardEvent) => {
-    if (e.key === 'Escape') onClose();
-  }, [onClose]);
+    if (e.key === 'Escape') {
+      if (step === 'form') setStep('pick');
+      else onClose();
+    }
+  }, [onClose, step]);
 
   useEffect(() => {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [handleEscape]);
 
+  const pickTemplate = (wo: WorkOrder) => {
+    setForm(templateToForm(wo));
+    setTemplateLabel(wo.title);
+    setStep('form');
+  };
+
+  const pickBlank = () => {
+    setForm(blankForm());
+    setTemplateLabel(null);
+    setStep('form');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!form.title.trim()) return;
 
     const now = new Date().toISOString();
     const id = `WO-U-${Date.now().toString().slice(-6)}`;
 
     const newWO: WorkOrder = {
       id,
-      droneId: droneName.trim() || 'unknown',
-      droneName: droneName.trim() || 'Unknown',
-      title: title.trim(),
-      description: description.trim(),
-      type,
-      priority,
-      status,
-      assignedTech: assignedTech.trim(),
+      droneId: form.droneName.trim() || 'unknown',
+      droneName: form.droneName.trim() || 'Unknown',
+      title: form.title.trim(),
+      description: form.description.trim(),
+      type: form.type,
+      priority: form.priority,
+      status: form.status,
+      assignedTech: form.assigned.trim(),
       createdAt: now,
       updatedAt: now,
-      estimatedHours: estimatedHours || 0,
+      estimatedHours: form.estimatedHours || 0,
       previousOccurrences: 0,
       completionHistory: [],
-      ernReference: ernReference.trim() || undefined,
-      notes: notes.trim() || undefined,
+      ernReference: form.ernReference.trim() || undefined,
+      notes: form.notes.trim() || undefined,
+      parts: form.parts && form.parts.length > 0 ? form.parts : undefined,
       source: 'platform',
       sfSyncStatus: 'pending',
       sfObject: 'WorkOrder',
@@ -65,160 +104,187 @@ export default function AddWorkOrderModal({ onAdd, onClose }: Props) {
     onAdd(newWO);
   };
 
+  const set = <K extends keyof ReturnType<typeof blankForm>>(key: K, val: ReturnType<typeof blankForm>[K]) =>
+    setForm(prev => ({ ...prev, [key]: val }));
+
+  // Deduplicate templates by title for the picker
+  const seen = new Set<string>();
+  const uniqueTemplates = existingWorkOrders.filter(wo => {
+    const key = wo.title.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const filteredTemplates = uniqueTemplates.filter(wo =>
+    !search || wo.title.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const inputCls = 'w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500';
+  const selectCls = 'w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500';
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div
-        className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-5 border-b border-gray-800">
+        {/* Header */}
+        <div className="flex items-center justify-between p-5 border-b border-gray-800 flex-shrink-0">
           <h2 className="text-base font-bold text-white flex items-center gap-2">
-            <Plus className="w-4 h-4 text-blue-400" /> Add Work Order
+            <Plus className="w-4 h-4 text-blue-400" />
+            {step === 'pick' ? 'Add Work Order' : templateLabel ? 'New Work Order (from template)' : 'New Work Order'}
           </h2>
           <button onClick={onClose} className="text-gray-500 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Title <span className="text-red-400">*</span></label>
-            <input
-              type="text"
-              required
-              placeholder="Work order title"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Drone Name / ID</label>
-            <input
-              type="text"
-              placeholder="FS-008"
-              value={droneName}
-              onChange={e => setDroneName(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+        {/* Step 1: Pick template */}
+        {step === 'pick' && (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="p-5 pb-3 flex-shrink-0">
+              <p className="text-xs text-gray-400 mb-3">Start from an existing work order or create a new one.</p>
+              <button
+                onClick={pickBlank}
+                className="w-full flex items-center gap-3 px-4 py-3 bg-blue-600/10 border border-blue-500/30 hover:border-blue-500/60 rounded-xl text-left transition-colors group"
+              >
+                <Sparkles className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">New from scratch</p>
+                  <p className="text-xs text-gray-500">Fill in all fields manually</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
+              </button>
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Type</label>
-            <select
-              value={type}
-              onChange={e => setType(e.target.value as WorkOrderType)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="maintenance">Maintenance</option>
-              <option value="upgrade">Upgrade</option>
-              <option value="issue">Issue Fix</option>
-              <option value="rca">RCA</option>
-            </select>
-          </div>
+            <div className="px-5 pb-3 flex-shrink-0">
+              <p className="text-xs text-gray-500 font-medium mb-2">Or use a previous work order as a template</p>
+              <input
+                type="text"
+                placeholder="Search work orders..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Priority</label>
-            <select
-              value={priority}
-              onChange={e => setPriority(e.target.value as WorkOrderPriority)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-              <option value="critical">Critical</option>
-            </select>
+            <div className="overflow-y-auto flex-1 px-5 pb-5 space-y-1">
+              {filteredTemplates.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-6">No matching work orders</p>
+              ) : (
+                filteredTemplates.map(wo => (
+                  <button
+                    key={wo.id}
+                    onClick={() => pickTemplate(wo)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 bg-gray-800 border border-gray-700 hover:border-gray-600 rounded-lg text-left transition-colors group"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-white truncate">{wo.title}</p>
+                      <p className="text-xs text-gray-500">{getWorkOrderTypeLabel(wo.type)} · {wo.estimatedHours}h est.</p>
+                    </div>
+                    <ChevronRight className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 transition-colors flex-shrink-0" />
+                  </button>
+                ))
+              )}
+            </div>
           </div>
+        )}
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Status</label>
-            <select
-              value={status}
-              onChange={e => setStatus(e.target.value as WorkOrderStatus)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
-            >
-              <option value="open">Open</option>
-              <option value="in_progress">In Progress</option>
-              <option value="on_hold">On Hold</option>
-              <option value="completed">Completed</option>
-            </select>
-          </div>
+        {/* Step 2: Form */}
+        {step === 'form' && (
+          <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 p-5 space-y-4">
+            {templateLabel && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                <ClipboardList className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                <p className="text-xs text-blue-300 truncate">Template: {templateLabel}</p>
+                <button type="button" onClick={() => { setForm(blankForm()); setTemplateLabel(null); }} className="ml-auto text-gray-600 hover:text-gray-400 flex-shrink-0">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Assigned Tech</label>
-            <input
-              type="text"
-              placeholder="Tech name"
-              value={assignedTech}
-              onChange={e => setAssignedTech(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Title <span className="text-red-400">*</span></label>
+              <input type="text" required placeholder="Work order title" value={form.title} onChange={e => set('title', e.target.value)} className={inputCls} />
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Estimated Hours</label>
-            <input
-              type="number"
-              min={0}
-              value={estimatedHours}
-              onChange={e => setEstimatedHours(Number(e.target.value))}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Drone Name / ID</label>
+              <input type="text" placeholder="FS-008" value={form.droneName} onChange={e => set('droneName', e.target.value)} className={inputCls} />
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Description</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Describe the work required..."
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-              rows={3}
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Type</label>
+                <select value={form.type} onChange={e => set('type', e.target.value as WorkOrderType)} className={selectCls}>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="upgrade">Upgrade</option>
+                  <option value="issue">Issue Fix</option>
+                  <option value="rca">RCA</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Priority</label>
+                <select value={form.priority} onChange={e => set('priority', e.target.value as WorkOrderPriority)} className={selectCls}>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </select>
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">ERN Reference</label>
-            <input
-              type="text"
-              placeholder="ERN-XXXX"
-              value={ernReference}
-              onChange={e => setErnReference(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Status</label>
+                <select value={form.status} onChange={e => set('status', e.target.value as WorkOrderStatus)} className={selectCls}>
+                  <option value="open">Open</option>
+                  <option value="in_progress">In Progress</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Est. Hours</label>
+                <input type="number" min={0} value={form.estimatedHours} onChange={e => set('estimatedHours', Number(e.target.value))} className={inputCls} />
+              </div>
+            </div>
 
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="Any additional notes..."
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 resize-none"
-              rows={3}
-            />
-          </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Assigned</label>
+              <input type="text" placeholder="Name or team" value={form.assigned} onChange={e => set('assigned', e.target.value)} className={inputCls} />
+            </div>
 
-          <div className="flex gap-3 pt-2 border-t border-gray-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-700 rounded-lg text-xs text-gray-400 hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 rounded-lg text-xs text-white font-medium hover:bg-blue-500"
-            >
-              Add Work Order
-            </button>
-          </div>
-        </form>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Description</label>
+              <textarea value={form.description} onChange={e => set('description', e.target.value)} placeholder="Describe the work required..." className={`${inputCls} resize-none`} rows={3} />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">ERN Reference</label>
+              <input type="text" placeholder="ERN-XXXX" value={form.ernReference} onChange={e => set('ernReference', e.target.value)} className={inputCls} />
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Notes</label>
+              <textarea value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="Any additional notes..." className={`${inputCls} resize-none`} rows={3} />
+            </div>
+
+            <div className="flex gap-3 pt-2 border-t border-gray-800">
+              <button type="button" onClick={() => setStep('pick')} className="px-4 py-2 border border-gray-700 rounded-lg text-xs text-gray-400 hover:text-white transition-colors">
+                ← Back
+              </button>
+              <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 rounded-lg text-xs text-white font-medium hover:bg-blue-500 transition-colors">
+                Add Work Order
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

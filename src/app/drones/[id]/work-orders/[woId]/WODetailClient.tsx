@@ -14,11 +14,12 @@ import {
 import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
-  Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList
+  Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy
 } from 'lucide-react';
 import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, Task, TaskStatus } from '@/lib/types';
 import InlineEdit from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
+import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
 const PRIORITY_OPTIONS = [
@@ -48,6 +49,7 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
+  const [showDuplicate, setShowDuplicate] = useState(false);
   const [ready, setReady] = useState(!!(staticWo && staticDrone));
   const [notFound, setNotFound] = useState(false);
 
@@ -137,14 +139,24 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
       <Header title={wo.title} subtitle={`${wo.id} · ${drone.name}`} />
       <div className="p-6 space-y-6">
 
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          <Link href="/drones" className="hover:text-white transition-colors flex items-center gap-1">
-            <ArrowLeft className="w-3 h-3" /> Drones
-          </Link>
-          <ChevronRight className="w-3 h-3" />
-          <Link href={`/drones/${drone.id}`} className="hover:text-white transition-colors">{drone.name}</Link>
-          <ChevronRight className="w-3 h-3" />
-          <span className="text-gray-300">{wo.id}</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Link href="/drones" className="hover:text-white transition-colors flex items-center gap-1">
+              <ArrowLeft className="w-3 h-3" /> Drones
+            </Link>
+            <ChevronRight className="w-3 h-3" />
+            <Link href={`/drones/${drone.id}`} className="hover:text-white transition-colors">{drone.name}</Link>
+            <ChevronRight className="w-3 h-3" />
+            <span className="text-gray-300">{wo.id}</span>
+          </div>
+          {can('add_work_orders') && (
+            <button
+              onClick={() => setShowDuplicate(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-700 hover:border-gray-500 rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+            >
+              <Copy className="w-3.5 h-3.5" /> Duplicate to drones
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -446,6 +458,14 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
         </div>
         <p className="text-xs text-gray-600">Hover any field to edit · Changes saved locally</p>
       </div>
+
+      {showDuplicate && (
+        <DuplicateWorkOrderModal
+          sourceWO={wo}
+          onDuplicate={() => setShowDuplicate(false)}
+          onClose={() => setShowDuplicate(false)}
+        />
+      )}
     </div>
   );
 }
