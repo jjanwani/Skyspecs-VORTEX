@@ -37,9 +37,9 @@ function KPICard({ title, value, subtitle, icon: Icon, color, href }: {
 
 export default function DashboardPage() {
   const totalDrones = drones.length;
-  const dronesInField = drones.filter(d => d.status === 'field').length;
-  const dronesReady = drones.filter(d => d.status === 'ready_for_deployment').length;
-  const dronesReturning = drones.filter(d => d.status === 'returning_field').length;
+  const dronesInField = drones.filter(d => d.status === 'deployed').length;
+  const dronesReady = drones.filter(d => d.status === 'ready_to_pack' || d.status === 'packup_kits' || d.status === 'operational').length;
+  const dronesReturning = drones.filter(d => d.status === 'delivered').length;
 
   const dronesUS = drones.filter(d => d.deploymentRegion === 'US').length;
   const dronesUK = drones.filter(d => d.deploymentRegion === 'UK').length;
@@ -64,12 +64,12 @@ export default function DashboardPage() {
     .slice(0, 6);
 
   const statusGroups = [
-    { label: 'In Field', count: dronesInField, bg: 'bg-emerald-500/10 border-emerald-500/20', color: 'text-emerald-400' },
-    { label: 'WIP / Redress', count: drones.filter(d => d.status === 'wip_redress').length, bg: 'bg-amber-500/10 border-amber-500/20', color: 'text-amber-400' },
-    { label: 'Returning Field', count: dronesReturning, bg: 'bg-purple-500/10 border-purple-500/20', color: 'text-purple-400' },
-    { label: 'Flight Status', count: drones.filter(d => d.status === 'flight_status').length, bg: 'bg-blue-500/10 border-blue-500/20', color: 'text-blue-400' },
-    { label: 'RCA', count: drones.filter(d => d.status === 'rca').length, bg: 'bg-red-500/10 border-red-500/20', color: 'text-red-400' },
-    { label: 'Ready for Deploy', count: dronesReady, bg: 'bg-green-500/10 border-green-500/20', color: 'text-green-400' },
+    { label: 'Deployed', count: dronesInField, bg: 'bg-emerald-500/10 border-emerald-500/20', color: 'text-emerald-400' },
+    { label: 'Drone Redress', count: drones.filter(d => d.status === 'drone_redress').length, bg: 'bg-orange-500/10 border-orange-500/20', color: 'text-orange-400' },
+    { label: 'Delivered', count: dronesReturning, bg: 'bg-blue-500/10 border-blue-500/20', color: 'text-blue-400' },
+    { label: 'EOL Testing', count: drones.filter(d => d.status === 'eol_testing').length, bg: 'bg-cyan-500/10 border-cyan-500/20', color: 'text-cyan-400' },
+    { label: 'RCA', count: drones.filter(d => d.status === 'ready_to_rca' || d.status === 'engineering_rca' || d.status === 'rca_ready_to_redress').length, bg: 'bg-red-500/10 border-red-500/20', color: 'text-red-400' },
+    { label: 'Ready / Operational', count: dronesReady, bg: 'bg-green-500/10 border-green-500/20', color: 'text-green-400' },
   ];
 
   return (

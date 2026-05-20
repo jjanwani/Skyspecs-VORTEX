@@ -20,13 +20,20 @@ import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 
 const STATUS_OPTIONS = [
-  { value: 'wip_redress', label: 'WIP / Redress' },
-  { value: 'ready_for_deployment', label: 'Ready for Deployment' },
-  { value: 'flight_status', label: 'Flight Status' },
-  { value: 'returning_field', label: 'Returning from Field' },
-  { value: 'field', label: 'In Field' },
-  { value: 'in_maintenance', label: 'In Maintenance' },
-  { value: 'rca', label: 'RCA' },
+  { value: 'deployed', label: 'Deployed' },
+  { value: 'issue_in_field', label: 'Issue in Field' },
+  { value: 'delivered', label: 'Delivered' },
+  { value: 'kit_ingestion', label: 'Kit Ingestion' },
+  { value: 'ready_to_redress', label: 'Ready to Redress' },
+  { value: 'drone_redress', label: 'Drone Redress' },
+  { value: 'ready_to_test', label: 'Ready to Test' },
+  { value: 'eol_testing', label: 'EOL Testing' },
+  { value: 'ready_to_pack', label: 'Ready to Pack' },
+  { value: 'packup_kits', label: 'Packup Kits' },
+  { value: 'operational', label: 'Operational' },
+  { value: 'ready_to_rca', label: 'Ready to RCA' },
+  { value: 'engineering_rca', label: 'Engineering RCA' },
+  { value: 'rca_ready_to_redress', label: 'RCA → Redress' },
 ];
 
 export default function DroneDetailClient({ id }: { id: string }) {

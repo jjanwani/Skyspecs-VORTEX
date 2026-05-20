@@ -8,26 +8,40 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getDroneStatusLabel(status: DroneStatus): string {
   const labels: Record<DroneStatus, string> = {
-    wip_redress: 'WIP / Redress',
-    ready_for_deployment: 'Ready for Deployment',
-    flight_status: 'Flight Status',
-    returning_field: 'Returning from Field',
-    field: 'In Field',
-    in_maintenance: 'In Maintenance',
-    rca: 'RCA',
+    deployed: 'Deployed',
+    issue_in_field: 'Issue in Field',
+    delivered: 'Delivered',
+    kit_ingestion: 'Kit Ingestion',
+    ready_to_redress: 'Ready to Redress',
+    drone_redress: 'Drone Redress',
+    ready_to_test: 'Ready to Test',
+    eol_testing: 'EOL Testing',
+    ready_to_pack: 'Ready to Pack',
+    packup_kits: 'Packup Kits',
+    operational: 'Operational',
+    ready_to_rca: 'Ready to RCA',
+    engineering_rca: 'Engineering RCA',
+    rca_ready_to_redress: 'RCA → Redress',
   };
   return labels[status];
 }
 
 export function getDroneStatusColor(status: DroneStatus): string {
   const colors: Record<DroneStatus, string> = {
-    wip_redress: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    ready_for_deployment: 'bg-green-500/20 text-green-400 border-green-500/30',
-    flight_status: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    returning_field: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    field: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    in_maintenance: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-    rca: 'bg-red-500/20 text-red-400 border-red-500/30',
+    deployed: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    issue_in_field: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    delivered: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    kit_ingestion: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+    ready_to_redress: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+    drone_redress: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
+    ready_to_test: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+    eol_testing: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    ready_to_pack: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    packup_kits: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    operational: 'bg-green-500/20 text-green-400 border-green-500/30',
+    ready_to_rca: 'bg-red-500/20 text-red-400 border-red-500/30',
+    engineering_rca: 'bg-red-500/20 text-red-400 border-red-500/30',
+    rca_ready_to_redress: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   };
   return colors[status];
 }

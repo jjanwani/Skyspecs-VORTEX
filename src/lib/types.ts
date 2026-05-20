@@ -1,11 +1,18 @@
 export type DroneStatus =
-  | 'wip_redress'
-  | 'ready_for_deployment'
-  | 'flight_status'
-  | 'returning_field'
-  | 'field'
-  | 'in_maintenance'
-  | 'rca';
+  | 'deployed'
+  | 'issue_in_field'
+  | 'delivered'
+  | 'kit_ingestion'
+  | 'ready_to_redress'
+  | 'drone_redress'
+  | 'ready_to_test'
+  | 'eol_testing'
+  | 'ready_to_pack'
+  | 'packup_kits'
+  | 'operational'
+  | 'ready_to_rca'
+  | 'engineering_rca'
+  | 'rca_ready_to_redress';
 
 export type WorkOrderType = 'maintenance' | 'upgrade' | 'issue' | 'rca';
 export type WorkOrderStatus = 'open' | 'in_progress' | 'completed' | 'on_hold';

@@ -13,7 +13,7 @@ interface Props {
 export default function AddDroneModal({ onAdd, onClose }: Props) {
   const [name, setName] = useState('');
   const [version, setVersion] = useState('V2');
-  const [status, setStatus] = useState<DroneStatus>('wip_redress');
+  const [status, setStatus] = useState<DroneStatus>('kit_ingestion');
   const [serialNumber, setSerialNumber] = useState('');
   const [buildVersion, setBuildVersion] = useState('');
   const [location, setLocation] = useState('');
@@ -114,13 +114,20 @@ export default function AddDroneModal({ onAdd, onClose }: Props) {
               onChange={e => setStatus(e.target.value as DroneStatus)}
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white focus:outline-none focus:border-blue-500"
             >
-              <option value="wip_redress">WIP / Redress</option>
-              <option value="ready_for_deployment">Ready for Deployment</option>
-              <option value="flight_status">Flight Status</option>
-              <option value="returning_field">Returning from Field</option>
-              <option value="field">In Field</option>
-              <option value="in_maintenance">In Maintenance</option>
-              <option value="rca">RCA</option>
+              <option value="deployed">Deployed</option>
+              <option value="issue_in_field">Issue in Field</option>
+              <option value="delivered">Delivered</option>
+              <option value="kit_ingestion">Kit Ingestion</option>
+              <option value="ready_to_redress">Ready to Redress</option>
+              <option value="drone_redress">Drone Redress</option>
+              <option value="ready_to_test">Ready to Test</option>
+              <option value="eol_testing">EOL Testing</option>
+              <option value="ready_to_pack">Ready to Pack</option>
+              <option value="packup_kits">Packup Kits</option>
+              <option value="operational">Operational</option>
+              <option value="ready_to_rca">Ready to RCA</option>
+              <option value="engineering_rca">Engineering RCA</option>
+              <option value="rca_ready_to_redress">RCA → Redress</option>
             </select>
           </div>
 

@@ -168,7 +168,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
     }
   });
   allDrones.forEach(d => {
-    if (d.status === 'rca') {
+    if (d.status === 'ready_to_rca' || d.status === 'engineering_rca') {
       notifications.push({
         id: `drone-rca-${d.id}`,
         type: 'warning',
