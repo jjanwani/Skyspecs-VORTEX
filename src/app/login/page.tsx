@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPlatformUsers } from '@/lib/userStore';
-import { Plane } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import Script from 'next/script';
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
@@ -88,10 +88,10 @@ export default function LoginPage() {
 
           <div className="text-center">
             <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Plane className="w-7 h-7 text-white" />
+              <Zap className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white">SkySpecs</h1>
-            <p className="text-gray-400 text-sm mt-1">Work Order Hub</p>
+            <h1 className="text-2xl font-bold text-white tracking-widest">VORTEX</h1>
+            <p className="text-gray-400 text-sm mt-1">Visual Operations & Real-Time Equipment Execution</p>
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
@@ -122,7 +122,7 @@ export default function LoginPage() {
           </div>
 
           <p className="text-center text-xs text-gray-600">
-            Access is managed by your SkySpecs administrator
+            Access is managed by your administrator
           </p>
         </div>
       </div>
@@ -159,10 +159,10 @@ function EmailLogin() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Plane className="w-7 h-7 text-white" />
+            <Zap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">SkySpecs</h1>
-          <p className="text-gray-400 text-sm mt-1">Work Order Hub</p>
+          <h1 className="text-2xl font-bold text-white tracking-widest">VORTEX</h1>
+          <p className="text-gray-400 text-sm mt-1">Visual Operations & Real-Time Equipment Execution</p>
         </div>
 
         <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
@@ -204,7 +204,7 @@ function EmailLogin() {
           )}
         </div>
 
-        <p className="text-center text-xs text-gray-600">Access is managed by your SkySpecs administrator</p>
+        <p className="text-center text-xs text-gray-600">Access is managed by your administrator</p>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu, Settings, LogOut, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,17 +54,17 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Plane className="w-4 h-4 text-white" />
+              <Zap className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-bold text-white tracking-wide truncate">SkySpecs</p>
-              <p className="text-xs text-gray-400 truncate">Work Order Hub</p>
+              <p className="text-sm font-bold text-white tracking-wide truncate">VORTEX</p>
+              <p className="text-xs text-gray-400 truncate">by SkySpecs</p>
             </div>
           </div>
         )}
         {collapsed && (
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
-            <Plane className="w-4 h-4 text-white" />
+            <Zap className="w-4 h-4 text-white" />
           </div>
         )}
         {!collapsed && (

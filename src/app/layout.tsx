@@ -8,8 +8,8 @@ import { AuthProvider } from '@/contexts/AuthContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'SkySpecs Work Order Hub',
-  description: 'Drone fleet work order and inventory management',
+  title: 'VORTEX',
+  description: 'Visual Operations and Real-Time Equipment Execution',
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
