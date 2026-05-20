@@ -2,7 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu, Settings, LogOut, Zap } from 'lucide-react';
+import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, ChevronRight, ChevronLeft, Menu, Settings, LogOut } from 'lucide-react';
+
+function DroneIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="9" y="9" width="6" height="6" rx="1.5" />
+      <line x1="9" y1="9" x2="5" y2="5" />
+      <line x1="15" y1="9" x2="19" y2="5" />
+      <line x1="9" y1="15" x2="5" y2="19" />
+      <line x1="15" y1="15" x2="19" y2="19" />
+      <circle cx="3.5" cy="3.5" r="2" />
+      <circle cx="20.5" cy="3.5" r="2" />
+      <circle cx="3.5" cy="20.5" r="2" />
+      <circle cx="20.5" cy="20.5" r="2" />
+    </svg>
+  );
+}
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -54,7 +70,7 @@ export default function Sidebar() {
         {!collapsed && (
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Zap className="w-4 h-4 text-white" />
+              <DroneIcon className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
               <p className="text-sm font-bold text-white tracking-wide truncate">VORTEX</p>
@@ -64,7 +80,7 @@ export default function Sidebar() {
         )}
         {collapsed && (
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center mx-auto">
-            <Zap className="w-4 h-4 text-white" />
+            <DroneIcon className="w-4 h-4 text-white" />
           </div>
         )}
         {!collapsed && (
