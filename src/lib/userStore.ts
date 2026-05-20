@@ -9,13 +9,19 @@ export interface PlatformUser {
 }
 
 const DEFAULT_USERS: PlatformUser[] = [
-  { id: 'u-admin', name: 'Jiya Janwani', email: 'ext-jiya.janwani@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
-  { id: 'u-pm', name: 'Jordan (PM)', email: 'jordan@skyspecs.com', role: 'production_manager', createdAt: '2024-01-01' },
-  { id: 'u-tech', name: 'Kaj (Tech)', email: 'kaj@skyspecs.com', role: 'technician', createdAt: '2024-01-01' },
-  { id: 'u-eng', name: 'Tyler (Eng)', email: 'tyler@skyspecs.com', role: 'engineer', createdAt: '2024-01-01' },
-  { id: 'u-proc', name: 'Drake (Procurement)', email: 'drake@skyspecs.com', role: 'procurement', createdAt: '2024-01-01' },
+  { id: 'u-jiya', name: 'Jiya Janwani', email: 'ext-jiya.janwani@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-gus', name: 'Gus Simshauser', email: 'gus.simshauser@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-alicia', name: 'Alicia Brown', email: 'alicia.brown@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-fischer', name: 'Fischer Meono', email: 'fischer.meono@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-rc', name: 'Rob Cupit', email: 'rob.cupit@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
   { id: 'u-loren', name: 'Loren Madden', email: 'loren.madden@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
-  { id: 'u-eeshan', name: 'Eeshan Khanpara', email: 'eeshan.khanpara@skyspecs.com', role: 'engineer', createdAt: '2024-01-01' },
+  { id: 'u-eeshan', name: 'Eeshan Khanpara', email: 'eeshan.khanpara@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-tyler', name: 'Tyler Stone', email: 'tyler.stone@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-hannah', name: 'Hannah Kuperus', email: 'hannah.kuperus@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-ricardo', name: 'Ricardo Martinez', email: 'ricardo.martinez@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-kaj', name: 'Kaj Moua', email: 'kaj.moua@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-kepler', name: 'Kepler Eberle', email: 'kepler.eberle@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-garret', name: 'Garret Poissant', email: 'garret.poissant@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
 ];
 
 export function getPlatformUsers(): PlatformUser[] {
