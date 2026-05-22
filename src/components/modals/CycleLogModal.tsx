@@ -46,8 +46,8 @@ function fmtMs(ms: number): string {
   return `${m}m`;
 }
 
-function msToDays(ms: number): number {
-  return parseFloat((ms / 86400000).toFixed(2));
+function msToMins(ms: number): number {
+  return Math.round(ms / 60000);
 }
 
 function phaseCategory(status: DroneStatus): { label: string; color: string } {
@@ -81,9 +81,9 @@ export default function CycleLogModal({ droneId, droneName, phases, onLog, onDis
 
   const [reason, setReason] = useState<DroneReturn['reason']>(autoReason(phases));
   const [notes,  setNotes]  = useState('');
-  const [leadDays,  setLeadDays]  = useState(msToDays(leadMs));
-  const [setupDays, setSetupDays] = useState(msToDays(setupMs));
-  const [cycleDays, setCycleDays] = useState(msToDays(cycleMs));
+  const [leadMins,  setLeadMins]  = useState(msToMins(leadMs));
+  const [setupMins, setSetupMins] = useState(msToMins(setupMs));
+  const [cycleMins, setCycleMins] = useState(msToMins(cycleMs));
 
   const handleLog = () => {
     const entry: DroneReturn = {
@@ -91,9 +91,9 @@ export default function CycleLogModal({ droneId, droneName, phases, onLog, onDis
       returnedAt: new Date().toISOString().slice(0, 10),
       reason,
       notes: notes.trim() || undefined,
-      leadTimeDays:  leadDays,
-      setupTimeDays: setupDays,
-      cycleTimeDays: cycleDays,
+      leadTimeMinutes:  leadMins,
+      setupTimeMinutes: setupMins,
+      cycleTimeMinutes: cycleMins,
     };
     saveDroneReturns(droneId, [...getDroneReturns(droneId), entry]);
     onLog(entry);
@@ -155,18 +155,18 @@ export default function CycleLogModal({ droneId, droneName, phases, onLog, onDis
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Time Summary</p>
             <div className="grid grid-cols-3 gap-3">
               {([
-                { key: 'lead',  label: 'Lead Time',  auto: leadMs,  val: leadDays,  set: setLeadDays,  color: 'text-amber-400',  hint: 'shelf wait' },
-                { key: 'setup', label: 'Setup Time', auto: setupMs, val: setupDays, set: setSetupDays, color: 'text-sky-400',   hint: 'parts & docs' },
-                { key: 'cycle', label: 'Cycle Time', auto: cycleMs, val: cycleDays, set: setCycleDays, color: 'text-orange-400', hint: 'active work' },
+                { key: 'lead',  label: 'Lead Time',  auto: leadMs,  val: leadMins,  set: setLeadMins,  color: 'text-amber-400',  hint: 'shelf wait' },
+                { key: 'setup', label: 'Setup Time', auto: setupMs, val: setupMins, set: setSetupMins, color: 'text-sky-400',   hint: 'parts & docs' },
+                { key: 'cycle', label: 'Cycle Time', auto: cycleMs, val: cycleMins, set: setCycleMins, color: 'text-orange-400', hint: 'active work' },
               ] as const).map(({ key, label, auto, val, set, color, hint }) => (
                 <div key={key} className="bg-gray-800 border border-gray-700 rounded-xl p-3">
                   <p className={cn('text-base font-bold', color)}>{auto > 0 ? fmtMs(auto) : '—'}</p>
                   <p className="text-xs text-gray-500">{label}</p>
                   <p className="text-xs text-gray-700 mb-2">{hint}</p>
-                  <label className="text-xs text-gray-600 block mb-1">Days (editable)</label>
+                  <label className="text-xs text-gray-600 block mb-1">Minutes (editable)</label>
                   <input
-                    type="number" min={0} step={0.1} value={val}
-                    onChange={e => set(parseFloat(e.target.value) || 0)}
+                    type="number" min={0} step={1} value={val}
+                    onChange={e => set(parseInt(e.target.value) || 0)}
                     className="w-full px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500"
                   />
                 </div>

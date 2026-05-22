@@ -16,8 +16,8 @@ import {
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
   Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy
 } from 'lucide-react';
-import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, Task, TaskStatus } from '@/lib/types';
-import InlineEdit from '@/components/InlineEdit';
+import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus } from '@/lib/types';
+import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 
@@ -27,6 +27,12 @@ const PRIORITY_OPTIONS = [
   { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'critical', label: 'Critical' },
+];
+const TYPE_OPTIONS = [
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'upgrade', label: 'Upgrade' },
+  { value: 'issue', label: 'Issue Fix' },
+  { value: 'rca', label: 'RCA' },
 ];
 const PART_STATUS_OPTIONS = [
   { value: 'available', label: 'Available' },
@@ -44,6 +50,7 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [baseWo, setBaseWo] = useState<WorkOrder | null>(staticWo ?? null);
   const [drone, setDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<WorkOrder>>({});
+  const [droneEdits, setDroneEdits] = useState<Partial<Drone>>({});
   const [partStatusEdits, setPartStatusEdits] = useState<Record<number, PartStatus>>({});
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -56,6 +63,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   useEffect(() => {
     const saved = localStorage.getItem(`workorder-edits-${woId}`);
     if (saved) setEdits(JSON.parse(saved));
+    const savedDroneEdits = localStorage.getItem(`drone-edits-${id}`);
+    if (savedDroneEdits) setDroneEdits(JSON.parse(savedDroneEdits));
     const savedParts = localStorage.getItem(`workorder-parts-${woId}`);
     if (savedParts) setPartStatusEdits(JSON.parse(savedParts));
     const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
@@ -126,6 +135,14 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     });
   };
 
+  const updateDrone = (field: keyof Drone, value: unknown) => {
+    setDroneEdits(prev => {
+      const next = { ...prev, [field]: value };
+      localStorage.setItem(`drone-edits-${id}`, JSON.stringify(next));
+      return next;
+    });
+  };
+
   const updatePartStatus = (index: number, status: PartStatus) => {
     setPartStatusEdits(prev => {
       const next = { ...prev, [index]: status };
@@ -165,9 +182,14 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 <span className="text-xs text-gray-500 font-mono">{wo.id}</span>
-                <span className={cn('text-xs px-2 py-1 rounded-lg border font-medium', getWorkOrderTypeColor(wo.type))}>
-                  {getWorkOrderTypeLabel(wo.type)}
-                </span>
+                <InlineEdit
+                  value={wo.type}
+                  type="select"
+                  options={TYPE_OPTIONS}
+                  onSave={v => update('type', v as WorkOrderType)}
+                  displayClassName={cn('text-xs px-2 py-1 rounded-lg border font-medium', getWorkOrderTypeColor(wo.type))}
+                  disabled={!can('edit_wo_priority')}
+                />
                 <InlineEdit
                   value={wo.priority}
                   type="select"
@@ -176,17 +198,27 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
                   displayClassName={cn('text-xs px-2 py-1 rounded-lg border font-medium', getPriorityColor(wo.priority))}
                   disabled={!can('edit_wo_priority')}
                 />
-                {wo.ernReference && (
-                  <InlineEdit
-                    value={wo.ernReference}
-                    onSave={v => update('ernReference', v)}
-                    displayClassName="text-xs px-2 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400"
-                    disabled={!can('edit_wo_notes')}
-                  />
-                )}
+                <InlineEdit
+                  value={wo.ernReference ?? ''}
+                  onSave={v => update('ernReference', v || undefined)}
+                  displayClassName="text-xs px-2 py-1 rounded-lg border bg-blue-500/10 border-blue-500/20 text-blue-400"
+                  emptyLabel="+ Add ERN"
+                  disabled={!can('edit_wo_notes')}
+                />
               </div>
-              <h2 className="text-lg font-bold text-white mb-3">{wo.title}</h2>
-              <p className="text-sm text-gray-400 leading-relaxed">{wo.description}</p>
+              <InlineEdit
+                value={wo.title}
+                onSave={v => update('title', v)}
+                displayClassName="text-lg font-bold text-white block mb-3"
+                disabled={!can('edit_wo_notes')}
+              />
+              <InlineEdit
+                value={wo.description}
+                type="textarea"
+                onSave={v => update('description', v)}
+                displayClassName="text-sm text-gray-400 leading-relaxed block"
+                disabled={!can('edit_wo_notes')}
+              />
               <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                 <p className="text-xs font-medium text-amber-400 mb-1 flex items-center gap-1">
                   <AlertCircle className="w-3.5 h-3.5" /> Notes
@@ -388,8 +420,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
           </div>
 
           <div className="space-y-4">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="text-sm font-semibold text-white mb-3">Drone</h3>
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-semibold text-white">Drone</h3>
               <Link href={`/drones/${drone.id}`} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group">
                 <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
                   <span className="text-xs font-bold text-blue-400">FS</span>
@@ -398,10 +430,44 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
                   <p className="text-xs font-medium text-white group-hover:text-blue-400 transition-colors">{drone.name}</p>
                   <p className="text-xs text-gray-500">{drone.version}</p>
                 </div>
-                <span className={cn('text-xs px-1.5 py-0.5 rounded border', getDroneStatusColor(drone.status))}>
-                  {getDroneStatusLabel(drone.status)}
+                <span className={cn('text-xs px-1.5 py-0.5 rounded border', getDroneStatusColor({ ...drone, ...droneEdits }.status))}>
+                  {getDroneStatusLabel({ ...drone, ...droneEdits }.status)}
                 </span>
               </Link>
+              {can('edit_drone_compliance') && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Compliance</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">ECT-52 (7075)</span>
+                      <InlineToggle
+                        value={({ ...drone, ...droneEdits }).ectCompliance}
+                        onToggle={() => updateDrone('ectCompliance', !({ ...drone, ...droneEdits }).ectCompliance)}
+                        trueLabel="Compliant" falseLabel="Not Compliant"
+                        falseClass="bg-red-500/10 text-red-400 border-red-500/20"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">ECN-199 (NDAA)</span>
+                      <InlineToggle
+                        value={({ ...drone, ...droneEdits }).ecnCompliance}
+                        onToggle={() => updateDrone('ecnCompliance', !({ ...drone, ...droneEdits }).ecnCompliance)}
+                        trueLabel="Compliant" falseLabel="Not Compliant"
+                        falseClass="bg-red-500/10 text-red-400 border-red-500/20"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">FAA Registration</span>
+                      <InlineToggle
+                        value={({ ...drone, ...droneEdits }).faaRegistration}
+                        onToggle={() => updateDrone('faaRegistration', !({ ...drone, ...droneEdits }).faaRegistration)}
+                        trueLabel="Registered" falseLabel="Not Registered"
+                        falseClass="bg-red-500/10 text-red-400 border-red-500/20"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -439,16 +505,38 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-white mb-3">Resources</h3>
               <div className="space-y-2">
-                {wo.googleDriveLink && (
-                  <a href={wo.googleDriveLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-xs text-white">
-                    <FileText className="w-3.5 h-3.5 text-blue-400" /><span>Drone Build Info (Drive)</span><ExternalLink className="w-3 h-3 ml-auto text-gray-500" />
-                  </a>
-                )}
-                {wo.slackThread && (
-                  <a href={wo.slackThread} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-xs text-white">
-                    <MessageSquare className="w-3.5 h-3.5 text-purple-400" /><span>Slack Thread</span><ExternalLink className="w-3 h-3 ml-auto text-gray-500" />
-                  </a>
-                )}
+                <div className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg text-xs">
+                  <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                  <span className="text-gray-400 flex-shrink-0">Drive:</span>
+                  <InlineEdit
+                    value={wo.googleDriveLink ?? ''}
+                    onSave={v => update('googleDriveLink', v || undefined)}
+                    displayClassName="text-blue-400 truncate flex-1"
+                    emptyLabel="Add Drive link"
+                    disabled={!can('edit_wo_notes')}
+                  />
+                  {wo.googleDriveLink && (
+                    <a href={wo.googleDriveLink} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                      <ExternalLink className="w-3 h-3 text-gray-500 hover:text-white transition-colors" />
+                    </a>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg text-xs">
+                  <MessageSquare className="w-3.5 h-3.5 text-purple-400 flex-shrink-0" />
+                  <span className="text-gray-400 flex-shrink-0">Slack:</span>
+                  <InlineEdit
+                    value={wo.slackThread ?? ''}
+                    onSave={v => update('slackThread', v || undefined)}
+                    displayClassName="text-purple-400 truncate flex-1"
+                    emptyLabel="Add Slack thread"
+                    disabled={!can('edit_wo_notes')}
+                  />
+                  {wo.slackThread && (
+                    <a href={wo.slackThread} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                      <ExternalLink className="w-3 h-3 text-gray-500 hover:text-white transition-colors" />
+                    </a>
+                  )}
+                </div>
                 <Link href="/information-hub" className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg hover:bg-gray-700 transition-colors text-xs text-white">
                   <FileText className="w-3.5 h-3.5 text-green-400" /><span>Information Hub</span><ChevronRight className="w-3 h-3 ml-auto text-gray-500" />
                 </Link>

@@ -31,9 +31,9 @@ export interface DroneReturn {
   returnedAt: string;
   reason: 'crash' | 'maintenance' | 'upgrade' | 'issue' | 'rca' | 'other';
   notes?: string;
-  leadTimeDays: number;  // days waiting before work starts (on shelf)
-  setupTimeDays: number; // days finding parts & documents
-  cycleTimeDays: number; // days actively working on drone
+  leadTimeMinutes: number;
+  setupTimeMinutes: number;
+  cycleTimeMinutes: number;
 }
 
 export interface Task {

@@ -350,8 +350,12 @@ function fmtDuration(ms: number): string {
   return `${m}m`;
 }
 
-function fmtDays(days: number): string {
-  return days === 0 ? '—' : `${days % 1 === 0 ? days : days.toFixed(1)}d`;
+function fmtMinutes(mins: number): string {
+  if (mins === 0) return '—';
+  if (mins < 60) return `${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
 function avg(nums: number[]): number {
@@ -379,7 +383,7 @@ function DroneHealthPanel({
   const [form, setForm] = useState({
     returnedAt: new Date().toISOString().slice(0, 10),
     reason: 'maintenance' as DroneReturn['reason'],
-    leadTimeDays: 0, setupTimeDays: 0, cycleTimeDays: 0, notes: '',
+    leadTimeMinutes: 0, setupTimeMinutes: 0, cycleTimeMinutes: 0, notes: '',
   });
   const [, setTick] = useState(0); // force re-render for live clock
 
@@ -404,9 +408,9 @@ function DroneHealthPanel({
   const avgSetupMs = avg(setupTimes);
   const avgCycleMs = avg(cycleTimes);
 
-  // MTTR from return records (more accurate: manually logged)
-  const mttrDays = returns.length > 0
-    ? avg(returns.map(r => r.leadTimeDays + r.setupTimeDays + r.cycleTimeDays))
+  // MTTR from return records (manually logged, in minutes)
+  const mttrMinutes = returns.length > 0
+    ? avg(returns.map(r => r.leadTimeMinutes + r.setupTimeMinutes + r.cycleTimeMinutes))
     : null;
 
   const lastReturn = [...returns].sort((a, b) => new Date(b.returnedAt).getTime() - new Date(a.returnedAt).getTime())[0];
@@ -418,15 +422,15 @@ function DroneHealthPanel({
       returnedAt: form.returnedAt,
       reason: form.reason,
       notes: form.notes.trim() || undefined,
-      leadTimeDays: form.leadTimeDays,
-      setupTimeDays: form.setupTimeDays,
-      cycleTimeDays: form.cycleTimeDays,
+      leadTimeMinutes: form.leadTimeMinutes,
+      setupTimeMinutes: form.setupTimeMinutes,
+      cycleTimeMinutes: form.cycleTimeMinutes,
     };
     const next = [...returns, entry];
     setReturns(next);
     saveDroneReturns(droneId, next);
     setShowForm(false);
-    setForm({ returnedAt: new Date().toISOString().slice(0, 10), reason: 'maintenance', leadTimeDays: 0, setupTimeDays: 0, cycleTimeDays: 0, notes: '' });
+    setForm({ returnedAt: new Date().toISOString().slice(0, 10), reason: 'maintenance', leadTimeMinutes: 0, setupTimeMinutes: 0, cycleTimeMinutes: 0, notes: '' });
   };
 
   const statCls = 'bg-gray-800 border border-gray-700 rounded-xl p-4 text-center';
@@ -465,7 +469,7 @@ function DroneHealthPanel({
         </div>
         <div className={statCls}>
           <p className="text-lg font-bold text-purple-400">
-            {mttrDays !== null ? `${mttrDays.toFixed(1)}d` : (leadTimes.length + cycleTimes.length > 0 ? fmtDuration(avgLeadMs + avgSetupMs + avgCycleMs) : '—')}
+            {mttrMinutes !== null ? fmtMinutes(Math.round(mttrMinutes)) : (leadTimes.length + cycleTimes.length > 0 ? fmtDuration(avgLeadMs + avgSetupMs + avgCycleMs) : '—')}
           </p>
           <p className="text-xs text-gray-500 mt-0.5">MTTR</p>
           <p className="text-xs text-gray-700 mt-0.5">mean time to redress</p>
@@ -541,11 +545,11 @@ function DroneHealthPanel({
             </div>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            {([['leadTimeDays', 'Lead time (days waiting)'], ['setupTimeDays', 'Setup time (days)'], ['cycleTimeDays', 'Cycle time (days)']] as const).map(([key, label]) => (
+            {([['leadTimeMinutes', 'Lead time (min)'], ['setupTimeMinutes', 'Setup time (min)'], ['cycleTimeMinutes', 'Cycle time (min)']] as const).map(([key, label]) => (
               <div key={key}>
                 <label className="block text-xs text-gray-400 mb-1">{label}</label>
-                <input type="number" min={0} step={0.5} value={form[key]}
-                  onChange={e => setForm(f => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
+                <input type="number" min={0} step={1} value={form[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: parseInt(e.target.value) || 0 }))}
                   className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500" />
               </div>
             ))}
@@ -571,9 +575,9 @@ function DroneHealthPanel({
               <tr className="border-b border-gray-800 text-gray-500">
                 <th className="text-left py-2 pr-4 font-medium">Date</th>
                 <th className="text-left py-2 pr-4 font-medium">Reason</th>
-                <th className="text-right py-2 pr-4 font-medium">Lead</th>
-                <th className="text-right py-2 pr-4 font-medium">Setup</th>
-                <th className="text-right py-2 pr-4 font-medium">Cycle</th>
+                <th className="text-right py-2 pr-4 font-medium">Lead (min)</th>
+                <th className="text-right py-2 pr-4 font-medium">Setup (min)</th>
+                <th className="text-right py-2 pr-4 font-medium">Cycle (min)</th>
                 <th className="text-right py-2 pr-4 font-medium">Total</th>
                 <th className="text-left py-2 font-medium">Notes</th>
               </tr>
@@ -585,10 +589,10 @@ function DroneHealthPanel({
                   <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
                     <td className="py-2 pr-4 text-gray-300">{new Date(r.returnedAt).toLocaleDateString()}</td>
                     <td className="py-2 pr-4"><span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 border border-gray-600">{REASON_LABELS[r.reason]}</span></td>
-                    <td className="py-2 pr-4 text-right text-amber-400">{fmtDays(r.leadTimeDays)}</td>
-                    <td className="py-2 pr-4 text-right text-sky-400">{fmtDays(r.setupTimeDays)}</td>
-                    <td className="py-2 pr-4 text-right text-orange-400">{fmtDays(r.cycleTimeDays)}</td>
-                    <td className="py-2 pr-4 text-right text-purple-400 font-medium">{fmtDays(r.leadTimeDays + r.setupTimeDays + r.cycleTimeDays)}</td>
+                    <td className="py-2 pr-4 text-right text-amber-400">{fmtMinutes(r.leadTimeMinutes)}</td>
+                    <td className="py-2 pr-4 text-right text-sky-400">{fmtMinutes(r.setupTimeMinutes)}</td>
+                    <td className="py-2 pr-4 text-right text-orange-400">{fmtMinutes(r.cycleTimeMinutes)}</td>
+                    <td className="py-2 pr-4 text-right text-purple-400 font-medium">{fmtMinutes(r.leadTimeMinutes + r.setupTimeMinutes + r.cycleTimeMinutes)}</td>
                     <td className="py-2 text-gray-500 truncate max-w-[120px]">{r.notes ?? '—'}</td>
                   </tr>
                 ))}
