@@ -113,16 +113,19 @@ export default function LoginPage() {
   const [scriptReady, setScriptReady] = useState(false);
 
   const handleCredential = (response: { credential: string }) => {
-    const { email } = decodeGoogleJwt(response.credential);
+    const { email, name } = decodeGoogleJwt(response.credential);
     const users = getPlatformUsers();
     const match = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (match) {
-      login(match);
-      localStorage.setItem('authenticated', 'true');
-      router.push('/');
-    } else {
-      setDenied(email);
-    }
+    const user = match ?? {
+      id: `u-${email.split('@')[0]}`,
+      name: name ?? email.split('@')[0],
+      email,
+      role: 'admin' as const,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    login(user);
+    localStorage.setItem('authenticated', 'true');
+    router.push('/');
   };
 
   const initGoogle = () => {
@@ -200,15 +203,18 @@ function EmailLogin() {
     setLoading(true);
     await new Promise(r => setTimeout(r, 400));
     const users = getPlatformUsers();
-    const match = users.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
-    if (match) {
-      login(match);
-      localStorage.setItem('authenticated', 'true');
-      router.push('/');
-    } else {
-      setLoading(false);
-      setDenied(email);
-    }
+    const trimmed = email.trim();
+    const match = users.find(u => u.email.toLowerCase() === trimmed.toLowerCase());
+    const user = match ?? {
+      id: `u-${trimmed.split('@')[0]}`,
+      name: trimmed.split('@')[0],
+      email: trimmed,
+      role: 'admin' as const,
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    login(user);
+    localStorage.setItem('authenticated', 'true');
+    router.push('/');
   };
 
   return (

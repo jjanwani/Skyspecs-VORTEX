@@ -10,6 +10,7 @@ export interface PlatformUser {
 
 const DEFAULT_USERS: PlatformUser[] = [
   { id: 'u-jiya', name: 'Jiya Janwani', email: 'ext-jiya.janwani@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
+  { id: 'u-jiya2', name: 'Jiya Janwani', email: 'jjanwani@umich.edu', role: 'admin', createdAt: '2024-01-01' },
   { id: 'u-gus', name: 'Gus Simshauser', email: 'gus.simshauser@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
   { id: 'u-alicia', name: 'Alicia Brown', email: 'alicia.brown@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
   { id: 'u-fischer', name: 'Fischer Meono', email: 'fischer.meono@skyspecs.com', role: 'admin', createdAt: '2024-01-01' },
