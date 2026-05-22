@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { drones as baseDrones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
-import { Drone, DroneStatus } from '@/lib/types';
+import { Drone, DroneStatus, PhaseEntry } from '@/lib/types';
 import { getDroneStatusColor, getDroneStatusLabel, getSFSyncColor, getSFSyncDot, getSFSyncLabel, cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus, LayoutGrid, Kanban, ArrowRight } from 'lucide-react';
 import AddDroneModal from '@/components/modals/AddDroneModal';
-import { getUserDrones, saveUserDrones, recordPhaseTransition } from '@/lib/userDataStore';
+import CycleLogModal from '@/components/modals/CycleLogModal';
+import { getUserDrones, saveUserDrones, recordPhaseTransition, getStatusTimestamps } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ── Board column definitions ────────────────────────────────────────────────
@@ -92,13 +93,19 @@ export default function DronesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'board'>('grid');
   const [statusOverrides, setStatusOverrides] = useState<Record<string, DroneStatus>>({});
   const [dragOverCol, setDragOverCol] = useState<DroneStatus | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const [timestamps, setTimestamps] = useState<Record<string, { status: string; enteredAt: string }>>({});
+  const [pendingCycle, setPendingCycle] = useState<{ droneId: string; droneName: string; phases: PhaseEntry[] } | null>(null);
 
   useEffect(() => {
     setUserDrones(getUserDrones());
+    setTimestamps(getStatusTimestamps());
     try {
       const saved = localStorage.getItem('drone-status-overrides');
       if (saved) setStatusOverrides(JSON.parse(saved));
     } catch {}
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
   }, []);
 
   const allDrones: Drone[] = [...baseDrones, ...userDrones].map(d => ({
@@ -111,7 +118,13 @@ export default function DronesPage() {
     setStatusOverrides(next);
     localStorage.setItem('drone-status-overrides', JSON.stringify(next));
 
-    recordPhaseTransition(droneId, newStatus);
+    const cyclePhases = recordPhaseTransition(droneId, newStatus);
+    setTimestamps(getStatusTimestamps());
+
+    if (cyclePhases && cyclePhases.length > 0) {
+      const drone = allDrones.find(d => d.id === droneId);
+      setPendingCycle({ droneId, droneName: drone?.name ?? droneId, phases: cyclePhases });
+    }
 
     // If it's a user drone, persist the status in the user-drones store too
     const ud = userDrones.find(d => d.id === droneId);
@@ -298,6 +311,8 @@ export default function DronesPage() {
                       onDragLeave={() => setDragOverCol(null)}
                       onDrop={e => handleDrop(e, col.status)}
                       showArrow={i < MAIN_FLOW.length - 1}
+                      timestamps={timestamps}
+                      now={now}
                     />
                   ))}
                 </div>
@@ -321,6 +336,8 @@ export default function DronesPage() {
                       onDragLeave={() => setDragOverCol(null)}
                       onDrop={e => handleDrop(e, col.status)}
                       showArrow={i < RCA_FLOW.length - 1}
+                      timestamps={timestamps}
+                      now={now}
                     />
                   ))}
                 </div>
@@ -340,6 +357,16 @@ export default function DronesPage() {
           onClose={() => setShowAddModal(false)}
         />
       )}
+
+      {pendingCycle && (
+        <CycleLogModal
+          droneId={pendingCycle.droneId}
+          droneName={pendingCycle.droneName}
+          phases={pendingCycle.phases}
+          onLog={() => setPendingCycle(null)}
+          onDiscard={() => setPendingCycle(null)}
+        />
+      )}
     </div>
   );
 }
@@ -355,9 +382,11 @@ interface BoardColumnProps {
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
   onDrop: (e: React.DragEvent) => void;
+  timestamps: Record<string, { status: string; enteredAt: string }>;
+  now: number;
 }
 
-function BoardColumn({ col, drones, isOver, showArrow, getOpenWOs, onDragOver, onDragLeave, onDrop }: BoardColumnProps) {
+function BoardColumn({ col, drones, isOver, showArrow, getOpenWOs, onDragOver, onDragLeave, onDrop, timestamps, now }: BoardColumnProps) {
   return (
     <div className="flex items-start gap-1.5">
       <div className="flex flex-col w-44 flex-shrink-0">
@@ -385,7 +414,13 @@ function BoardColumn({ col, drones, isOver, showArrow, getOpenWOs, onDragOver, o
             </div>
           )}
           {drones.map(drone => (
-            <BoardCard key={drone.id} drone={drone} openWOs={getOpenWOs(drone.id)} />
+            <BoardCard
+              key={drone.id}
+              drone={drone}
+              openWOs={getOpenWOs(drone.id)}
+              enteredAt={timestamps[drone.id]?.enteredAt}
+              now={now}
+            />
           ))}
         </div>
       </div>
@@ -399,7 +434,23 @@ function BoardColumn({ col, drones, isOver, showArrow, getOpenWOs, onDragOver, o
 
 // ── Board drone card ─────────────────────────────────────────────────────────
 
-function BoardCard({ drone, openWOs }: { drone: Drone; openWOs: number }) {
+function fmtElapsed(ms: number): string {
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+function BoardCard({ drone, openWOs, enteredAt, now }: {
+  drone: Drone;
+  openWOs: number;
+  enteredAt?: string;
+  now: number;
+}) {
+  const elapsed = enteredAt ? now - new Date(enteredAt).getTime() : null;
+
   return (
     <div
       draggable
@@ -420,6 +471,13 @@ function BoardCard({ drone, openWOs }: { drone: Drone; openWOs: number }) {
       {drone.assignedTech && (
         <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
           <User className="w-3 h-3" />{drone.assignedTech}
+        </p>
+      )}
+
+      {elapsed !== null && (
+        <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+          <Clock className="w-3 h-3" />
+          <span className="tabular-nums">{fmtElapsed(elapsed)}</span>
         </p>
       )}
 

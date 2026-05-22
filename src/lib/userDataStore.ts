@@ -35,8 +35,13 @@ export function getDronePhaseHistory(droneId: string): PhaseEntry[] {
   try { return JSON.parse(localStorage.getItem(`drone-phase-${droneId}`) || '[]'); } catch { return []; }
 }
 
-export function recordPhaseTransition(droneId: string, toStatus: DroneStatus): void {
-  if (typeof window === 'undefined') return;
+/**
+ * Records a phase transition. Returns the completed cycle's PhaseEntry[] when
+ * transitioning to 'deployed' and at least one intervening phase was tracked;
+ * otherwise returns null.
+ */
+export function recordPhaseTransition(droneId: string, toStatus: DroneStatus): PhaseEntry[] | null {
+  if (typeof window === 'undefined') return null;
   const now = new Date().toISOString();
 
   // Update lightweight timestamp index (used by Header for wait-time alerts)
@@ -44,13 +49,26 @@ export function recordPhaseTransition(droneId: string, toStatus: DroneStatus): v
   timestamps[droneId] = { status: toStatus, enteredAt: now };
   localStorage.setItem('drone-status-timestamps', JSON.stringify(timestamps));
 
-  // Update full phase history
+  // Build updated phase history (close current open entry, append new one)
   const history = getDronePhaseHistory(droneId);
-  const updated = history.map((e, i) =>
+  const closed = history.map((e, i) =>
     i === history.length - 1 && !e.exitedAt ? { ...e, exitedAt: now } : e
   );
-  updated.push({ status: toStatus, enteredAt: now });
-  localStorage.setItem(`drone-phase-${droneId}`, JSON.stringify(updated));
+  closed.push({ status: toStatus, enteredAt: now });
+  localStorage.setItem(`drone-phase-${droneId}`, JSON.stringify(closed));
+
+  // When returning to deployed, extract and return the phases of the just-completed cycle
+  if (toStatus === 'deployed' && closed.length > 1) {
+    let lastDeployedIdx = -1;
+    for (let i = closed.length - 2; i >= 0; i--) { // skip the entry we just pushed
+      if (closed[i].status === 'deployed') { lastDeployedIdx = i; break; }
+    }
+    const cyclePhases = lastDeployedIdx >= 0
+      ? closed.slice(lastDeployedIdx + 1, closed.length - 1)
+      : closed.slice(0, closed.length - 1);
+    if (cyclePhases.length > 0) return cyclePhases;
+  }
+  return null;
 }
 
 // ── Return records ───────────────────────────────────────────────────────────

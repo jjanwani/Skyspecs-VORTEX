@@ -22,6 +22,7 @@ import {
   recordPhaseTransition, getDronePhaseHistory,
   getDroneReturns, saveDroneReturns,
 } from '@/lib/userDataStore';
+import CycleLogModal from '@/components/modals/CycleLogModal';
 
 const STATUS_OPTIONS = [
   { value: 'deployed', label: 'Deployed' },
@@ -48,6 +49,8 @@ export default function DroneDetailClient({ id }: { id: string }) {
   const [userWOs, setUserWOs] = useState<typeof workOrders>([]);
   const [ready, setReady] = useState(!!staticDrone);
   const [notFound, setNotFound] = useState(false);
+  const [pendingCycle, setPendingCycle] = useState<PhaseEntry[] | null>(null);
+  const [healthRefresh, setHealthRefresh] = useState(0);
 
   useEffect(() => {
     const saved = localStorage.getItem(`drone-edits-${id}`);
@@ -81,7 +84,10 @@ export default function DroneDetailClient({ id }: { id: string }) {
       localStorage.setItem(`drone-edits-${id}`, JSON.stringify(next));
       return next;
     });
-    if (field === 'status') recordPhaseTransition(id, value as DroneStatus);
+    if (field === 'status') {
+      const cyclePhases = recordPhaseTransition(id, value as DroneStatus);
+      if (cyclePhases && cyclePhases.length > 0) setPendingCycle(cyclePhases);
+    }
   };
 
   const allWOs = [...workOrders, ...userWOs];
@@ -303,7 +309,17 @@ export default function DroneDetailClient({ id }: { id: string }) {
           </div>
         </div>
         {/* Drone Health Panel */}
-        <DroneHealthPanel droneId={id} currentStatus={drone.status} allWOs={allWOs} canManage={can('edit_drone_compliance')} />
+        <DroneHealthPanel droneId={id} currentStatus={drone.status} allWOs={allWOs} canManage={can('edit_drone_compliance')} refreshSignal={healthRefresh} />
+
+        {pendingCycle && (
+          <CycleLogModal
+            droneId={id}
+            droneName={drone.name}
+            phases={pendingCycle}
+            onLog={() => { setHealthRefresh(r => r + 1); setPendingCycle(null); }}
+            onDiscard={() => setPendingCycle(null)}
+          />
+        )}
 
         <p className="text-xs text-gray-600">{can('edit_drone_status') ? 'Hover any field to edit · Changes saved locally' : 'View only · Contact admin to edit'}</p>
       </div>
@@ -328,9 +344,10 @@ function phaseDuration(entry: PhaseEntry): number {
 function fmtDuration(ms: number): string {
   const d = Math.floor(ms / 86400000);
   const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
   if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h`;
-  return '<1h';
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
 }
 
 function fmtDays(days: number): string {
@@ -347,12 +364,13 @@ const REASON_LABELS: Record<DroneReturn['reason'], string> = {
 };
 
 function DroneHealthPanel({
-  droneId, currentStatus, allWOs, canManage,
+  droneId, currentStatus, allWOs, canManage, refreshSignal,
 }: {
   droneId: string;
   currentStatus: DroneStatus;
   allWOs: WorkOrder[];
   canManage: boolean;
+  refreshSignal?: number;
 }) {
   const [phaseHistory, setPhaseHistory] = useState<PhaseEntry[]>([]);
   const [returns, setReturns] = useState<DroneReturn[]>([]);
@@ -363,14 +381,14 @@ function DroneHealthPanel({
     reason: 'maintenance' as DroneReturn['reason'],
     leadTimeDays: 0, setupTimeDays: 0, cycleTimeDays: 0, notes: '',
   });
-  const [, setTick] = useState(0); // force re-render for live duration
+  const [, setTick] = useState(0); // force re-render for live clock
 
   useEffect(() => {
     setPhaseHistory(getDronePhaseHistory(droneId));
     setReturns(getDroneReturns(droneId));
-    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(interval);
-  }, [droneId]);
+  }, [droneId, refreshSignal]);
 
   // Current phase
   const currentEntry = [...phaseHistory].reverse().find(e => !e.exitedAt);
