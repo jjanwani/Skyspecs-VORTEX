@@ -1,2 +1,2 @@
-:HL["/skyspecs-work_order_hub/_next/static/chunks/0y8~21j8v2n.u.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"FgIefeOMyzwXposcoS3AX"}
+:HL["/skyspecs-work_order_hub/_next/static/chunks/0~n7e~3cxsujc.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"R9LmYbR2-lBtKOSJhMisI"}
