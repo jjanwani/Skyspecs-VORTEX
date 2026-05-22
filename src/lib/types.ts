@@ -20,6 +20,22 @@ export type WorkOrderPriority = 'low' | 'medium' | 'high' | 'critical';
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done';
 
+export interface PhaseEntry {
+  status: DroneStatus;
+  enteredAt: string;  // ISO timestamp
+  exitedAt?: string;  // ISO timestamp, absent = currently in this phase
+}
+
+export interface DroneReturn {
+  id: string;
+  returnedAt: string;
+  reason: 'crash' | 'maintenance' | 'upgrade' | 'issue' | 'rca' | 'other';
+  notes?: string;
+  leadTimeDays: number;  // days waiting before work starts (on shelf)
+  setupTimeDays: number; // days finding parts & documents
+  cycleTimeDays: number; // days actively working on drone
+}
+
 export interface Task {
   id: string;
   title: string;

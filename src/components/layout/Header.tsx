@@ -10,6 +10,7 @@ import { inventoryItems as baseInventory } from '@/lib/data/inventory';
 import { cn, getDroneStatusLabel, getWorkOrderStatusLabel, getPIPOStatusLabel, getPIPOStatusColor, getWorkOrderStatusColor } from '@/lib/utils';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { getStatusTimestamps } from '@/lib/userDataStore';
 
 interface HeaderProps {
   title: string;
@@ -167,17 +168,49 @@ export default function Header({ title, subtitle }: HeaderProps) {
       });
     }
   });
-  allDrones.forEach(d => {
-    if (d.status === 'ready_to_rca' || d.status === 'engineering_rca') {
-      notifications.push({
-        id: `drone-rca-${d.id}`,
-        type: 'warning',
-        title: `RCA required: ${d.name}`,
-        subtitle: d.notes ?? 'Root cause analysis pending',
-        href: `/drones/${d.id}`,
-      });
-    }
-  });
+  // Wait-time alerts: drones sitting in "ready" statuses too long
+  const WAIT_THRESHOLDS_MS: Partial<Record<string, number>> = {
+    ready_to_redress: 2 * 86400000,
+    ready_to_test: 1 * 86400000,
+    ready_to_pack: 1 * 86400000,
+    ready_to_rca: 3 * 86400000,
+    rca_ready_to_redress: 2 * 86400000,
+    delivered: 3 * 86400000,
+    kit_ingestion: 2 * 86400000,
+  };
+
+  if (typeof window !== 'undefined') {
+    const timestamps = getStatusTimestamps();
+    const now = Date.now();
+    allDrones.forEach(d => {
+      const ts = timestamps[d.id];
+      const status = ts?.status ?? d.status;
+      const threshold = WAIT_THRESHOLDS_MS[status];
+      if (threshold && ts?.enteredAt) {
+        const elapsed = now - new Date(ts.enteredAt).getTime();
+        if (elapsed > threshold) {
+          const days = Math.floor(elapsed / 86400000);
+          const hours = Math.floor((elapsed % 86400000) / 3600000);
+          notifications.push({
+            id: `wait-${d.id}`,
+            type: 'warning',
+            title: `Wait time alert: ${d.name}`,
+            subtitle: `${getDroneStatusLabel(status as never)} for ${days > 0 ? `${days}d ` : ''}${hours}h`,
+            href: `/drones/${d.id}`,
+          });
+        }
+      }
+      if (d.status === 'ready_to_rca' || d.status === 'engineering_rca') {
+        notifications.push({
+          id: `drone-rca-${d.id}`,
+          type: 'critical',
+          title: `RCA in progress: ${d.name}`,
+          subtitle: d.notes ?? 'Root cause analysis pending',
+          href: `/drones/${d.id}`,
+        });
+      }
+    });
+  }
 
   const handleLogout = () => {
     logout();

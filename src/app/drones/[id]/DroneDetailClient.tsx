@@ -15,9 +15,13 @@ import {
   Plane, ArrowLeft, Clock, MapPin,
   User, AlertTriangle, ClipboardList, ExternalLink
 } from 'lucide-react';
-import { Drone, DroneStatus } from '@/lib/types';
+import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  recordPhaseTransition, getDronePhaseHistory,
+  getDroneReturns, saveDroneReturns,
+} from '@/lib/userDataStore';
 
 const STATUS_OPTIONS = [
   { value: 'deployed', label: 'Deployed' },
@@ -77,6 +81,7 @@ export default function DroneDetailClient({ id }: { id: string }) {
       localStorage.setItem(`drone-edits-${id}`, JSON.stringify(next));
       return next;
     });
+    if (field === 'status') recordPhaseTransition(id, value as DroneStatus);
   };
 
   const allWOs = [...workOrders, ...userWOs];
@@ -297,8 +302,282 @@ export default function DroneDetailClient({ id }: { id: string }) {
             )}
           </div>
         </div>
+        {/* Drone Health Panel */}
+        <DroneHealthPanel droneId={id} currentStatus={drone.status} allWOs={allWOs} canManage={can('edit_drone_compliance')} />
+
         <p className="text-xs text-gray-600">{can('edit_drone_status') ? 'Hover any field to edit · Changes saved locally' : 'View only · Contact admin to edit'}</p>
       </div>
+    </div>
+  );
+}
+
+// ── Drone Health Panel ───────────────────────────────────────────────────────
+
+const WAIT_STATUSES = new Set<DroneStatus>([
+  'delivered', 'kit_ingestion', 'ready_to_redress', 'ready_to_test',
+  'ready_to_pack', 'ready_to_rca', 'rca_ready_to_redress',
+]);
+const WORK_STATUSES = new Set<DroneStatus>(['drone_redress', 'eol_testing', 'engineering_rca']);
+const SETUP_STATUSES = new Set<DroneStatus>(['kit_ingestion']);
+
+function phaseDuration(entry: PhaseEntry): number {
+  const end = entry.exitedAt ? new Date(entry.exitedAt).getTime() : Date.now();
+  return end - new Date(entry.enteredAt).getTime();
+}
+
+function fmtDuration(ms: number): string {
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h`;
+  return '<1h';
+}
+
+function fmtDays(days: number): string {
+  return days === 0 ? '—' : `${days % 1 === 0 ? days : days.toFixed(1)}d`;
+}
+
+function avg(nums: number[]): number {
+  return nums.length === 0 ? 0 : nums.reduce((a, b) => a + b, 0) / nums.length;
+}
+
+const REASON_LABELS: Record<DroneReturn['reason'], string> = {
+  crash: 'Crash', maintenance: 'Maintenance', upgrade: 'Upgrade',
+  issue: 'Issue', rca: 'RCA', other: 'Other',
+};
+
+function DroneHealthPanel({
+  droneId, currentStatus, allWOs, canManage,
+}: {
+  droneId: string;
+  currentStatus: DroneStatus;
+  allWOs: WorkOrder[];
+  canManage: boolean;
+}) {
+  const [phaseHistory, setPhaseHistory] = useState<PhaseEntry[]>([]);
+  const [returns, setReturns] = useState<DroneReturn[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    returnedAt: new Date().toISOString().slice(0, 10),
+    reason: 'maintenance' as DroneReturn['reason'],
+    leadTimeDays: 0, setupTimeDays: 0, cycleTimeDays: 0, notes: '',
+  });
+  const [, setTick] = useState(0); // force re-render for live duration
+
+  useEffect(() => {
+    setPhaseHistory(getDronePhaseHistory(droneId));
+    setReturns(getDroneReturns(droneId));
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, [droneId]);
+
+  // Current phase
+  const currentEntry = [...phaseHistory].reverse().find(e => !e.exitedAt);
+  const currentPhaseDuration = currentEntry ? phaseDuration(currentEntry) : null;
+
+  // Metrics from phase history
+  const completedPhases = phaseHistory.filter(e => e.exitedAt);
+  const leadTimes = completedPhases.filter(e => WAIT_STATUSES.has(e.status)).map(phaseDuration);
+  const setupTimes = completedPhases.filter(e => SETUP_STATUSES.has(e.status)).map(phaseDuration);
+  const cycleTimes = completedPhases.filter(e => WORK_STATUSES.has(e.status)).map(phaseDuration);
+
+  const avgLeadMs = avg(leadTimes);
+  const avgSetupMs = avg(setupTimes);
+  const avgCycleMs = avg(cycleTimes);
+
+  // MTTR from return records (more accurate: manually logged)
+  const mttrDays = returns.length > 0
+    ? avg(returns.map(r => r.leadTimeDays + r.setupTimeDays + r.cycleTimeDays))
+    : null;
+
+  const lastReturn = [...returns].sort((a, b) => new Date(b.returnedAt).getTime() - new Date(a.returnedAt).getTime())[0];
+  const previousTickets = allWOs.filter(wo => wo.droneId === droneId && wo.status === 'completed');
+
+  const saveReturn = () => {
+    const entry: DroneReturn = {
+      id: `ret-${Date.now()}`,
+      returnedAt: form.returnedAt,
+      reason: form.reason,
+      notes: form.notes.trim() || undefined,
+      leadTimeDays: form.leadTimeDays,
+      setupTimeDays: form.setupTimeDays,
+      cycleTimeDays: form.cycleTimeDays,
+    };
+    const next = [...returns, entry];
+    setReturns(next);
+    saveDroneReturns(droneId, next);
+    setShowForm(false);
+    setForm({ returnedAt: new Date().toISOString().slice(0, 10), reason: 'maintenance', leadTimeDays: 0, setupTimeDays: 0, cycleTimeDays: 0, notes: '' });
+  };
+
+  const statCls = 'bg-gray-800 border border-gray-700 rounded-xl p-4 text-center';
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 space-y-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-400" />
+          Drone Health & Metrics
+        </h3>
+        {currentPhaseDuration !== null && (
+          <div className="text-xs text-gray-400">
+            In <span className={cn('px-1.5 py-0.5 rounded border', 'bg-gray-700 text-gray-300 border-gray-600')}>{currentStatus.replace(/_/g, ' ')}</span>{' '}
+            for <span className="text-white font-medium">{fmtDuration(currentPhaseDuration)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Averages grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className={statCls}>
+          <p className="text-lg font-bold text-amber-400">{leadTimes.length ? fmtDuration(avgLeadMs) : '—'}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Lead Time</p>
+          <p className="text-xs text-gray-700 mt-0.5">avg shelf wait</p>
+        </div>
+        <div className={statCls}>
+          <p className="text-lg font-bold text-sky-400">{setupTimes.length ? fmtDuration(avgSetupMs) : '—'}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Setup Time</p>
+          <p className="text-xs text-gray-700 mt-0.5">parts & docs</p>
+        </div>
+        <div className={statCls}>
+          <p className="text-lg font-bold text-orange-400">{cycleTimes.length ? fmtDuration(avgCycleMs) : '—'}</p>
+          <p className="text-xs text-gray-500 mt-0.5">Cycle Time</p>
+          <p className="text-xs text-gray-700 mt-0.5">active work</p>
+        </div>
+        <div className={statCls}>
+          <p className="text-lg font-bold text-purple-400">
+            {mttrDays !== null ? `${mttrDays.toFixed(1)}d` : (leadTimes.length + cycleTimes.length > 0 ? fmtDuration(avgLeadMs + avgSetupMs + avgCycleMs) : '—')}
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">MTTR</p>
+          <p className="text-xs text-gray-700 mt-0.5">mean time to redress</p>
+        </div>
+      </div>
+
+      {/* MTTF + last return */}
+      <div className="flex flex-wrap gap-4 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-500">MTTF:</span>
+          <span className="text-gray-400 italic">— (pending Salesforce sync)</span>
+        </div>
+        {lastReturn && (
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">Last return:</span>
+            <span className="text-white">{REASON_LABELS[lastReturn.reason]}</span>
+            {lastReturn.notes && <span className="text-gray-400">· {lastReturn.notes}</span>}
+            <span className="text-gray-600">· {new Date(lastReturn.returnedAt).toLocaleDateString()}</span>
+          </div>
+        )}
+        {previousTickets.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-gray-500">Completed tickets:</span>
+            <span className="text-white">{previousTickets.length}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3 border-t border-gray-800 pt-4">
+        {canManage && !showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="px-3 py-1.5 text-xs bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 rounded-lg transition-colors"
+          >
+            + Log Return
+          </button>
+        )}
+        {returns.length > 0 && (
+          <button
+            onClick={() => setShowAll(s => !s)}
+            className="px-3 py-1.5 text-xs border border-gray-700 text-gray-400 hover:text-white rounded-lg transition-colors"
+          >
+            {showAll ? 'Hide' : `View all ${returns.length} return${returns.length > 1 ? 's' : ''}`} ↕
+          </button>
+        )}
+        {phaseHistory.length === 0 && (
+          <p className="text-xs text-gray-600 italic self-center">Phase tracking starts when drone status is changed from this platform.</p>
+        )}
+      </div>
+
+      {/* Log Return form */}
+      {showForm && (
+        <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 space-y-3">
+          <p className="text-xs font-semibold text-white">Log Return Event</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Return Date</label>
+              <input type="date" value={form.returnedAt} onChange={e => setForm(f => ({ ...f, returnedAt: e.target.value }))}
+                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Reason</label>
+              <select value={form.reason} onChange={e => setForm(f => ({ ...f, reason: e.target.value as DroneReturn['reason'] }))}
+                className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500">
+                <option value="maintenance">Maintenance</option>
+                <option value="crash">Crash</option>
+                <option value="issue">Issue</option>
+                <option value="upgrade">Upgrade</option>
+                <option value="rca">RCA</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {([['leadTimeDays', 'Lead time (days waiting)'], ['setupTimeDays', 'Setup time (days)'], ['cycleTimeDays', 'Cycle time (days)']] as const).map(([key, label]) => (
+              <div key={key}>
+                <label className="block text-xs text-gray-400 mb-1">{label}</label>
+                <input type="number" min={0} step={0.5} value={form[key]}
+                  onChange={e => setForm(f => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500" />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Notes</label>
+            <input type="text" placeholder="e.g. Motor failure, ESC issue..." value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={saveReturn} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white font-medium transition-colors">Save</button>
+            <button onClick={() => setShowForm(false)} className="px-3 py-1.5 border border-gray-600 rounded text-xs text-gray-400 hover:text-white transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Returns history table */}
+      {showAll && returns.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-800 text-gray-500">
+                <th className="text-left py-2 pr-4 font-medium">Date</th>
+                <th className="text-left py-2 pr-4 font-medium">Reason</th>
+                <th className="text-right py-2 pr-4 font-medium">Lead</th>
+                <th className="text-right py-2 pr-4 font-medium">Setup</th>
+                <th className="text-right py-2 pr-4 font-medium">Cycle</th>
+                <th className="text-right py-2 pr-4 font-medium">Total</th>
+                <th className="text-left py-2 font-medium">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...returns]
+                .sort((a, b) => new Date(b.returnedAt).getTime() - new Date(a.returnedAt).getTime())
+                .map(r => (
+                  <tr key={r.id} className="border-b border-gray-800/50 hover:bg-gray-800/30">
+                    <td className="py-2 pr-4 text-gray-300">{new Date(r.returnedAt).toLocaleDateString()}</td>
+                    <td className="py-2 pr-4"><span className="px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 border border-gray-600">{REASON_LABELS[r.reason]}</span></td>
+                    <td className="py-2 pr-4 text-right text-amber-400">{fmtDays(r.leadTimeDays)}</td>
+                    <td className="py-2 pr-4 text-right text-sky-400">{fmtDays(r.setupTimeDays)}</td>
+                    <td className="py-2 pr-4 text-right text-orange-400">{fmtDays(r.cycleTimeDays)}</td>
+                    <td className="py-2 pr-4 text-right text-purple-400 font-medium">{fmtDays(r.leadTimeDays + r.setupTimeDays + r.cycleTimeDays)}</td>
+                    <td className="py-2 text-gray-500 truncate max-w-[120px]">{r.notes ?? '—'}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

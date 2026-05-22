@@ -9,7 +9,7 @@ import { getDroneStatusColor, getDroneStatusLabel, getSFSyncColor, getSFSyncDot,
 import Link from 'next/link';
 import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus, LayoutGrid, Kanban, ArrowRight } from 'lucide-react';
 import AddDroneModal from '@/components/modals/AddDroneModal';
-import { getUserDrones, saveUserDrones } from '@/lib/userDataStore';
+import { getUserDrones, saveUserDrones, recordPhaseTransition } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 // ── Board column definitions ────────────────────────────────────────────────
@@ -110,6 +110,8 @@ export default function DronesPage() {
     const next = { ...statusOverrides, [droneId]: newStatus };
     setStatusOverrides(next);
     localStorage.setItem('drone-status-overrides', JSON.stringify(next));
+
+    recordPhaseTransition(droneId, newStatus);
 
     // If it's a user drone, persist the status in the user-drones store too
     const ud = userDrones.find(d => d.id === droneId);

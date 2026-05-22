@@ -1,4 +1,4 @@
-import { Drone, WorkOrder, InventoryItem } from '@/lib/types';
+import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus } from '@/lib/types';
 
 export function getUserDrones(): Drone[] {
   if (typeof window === 'undefined') return [];
@@ -20,4 +20,46 @@ export function getUserInventory(): InventoryItem[] {
 }
 export function saveUserInventory(items: InventoryItem[]) {
   localStorage.setItem('user-inventory', JSON.stringify(items));
+}
+
+// ── Phase time tracking ──────────────────────────────────────────────────────
+
+/** Lightweight map of droneId → {status, enteredAt} for fast wait-time checks. */
+export function getStatusTimestamps(): Record<string, { status: string; enteredAt: string }> {
+  if (typeof window === 'undefined') return {};
+  try { return JSON.parse(localStorage.getItem('drone-status-timestamps') || '{}'); } catch { return {}; }
+}
+
+export function getDronePhaseHistory(droneId: string): PhaseEntry[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem(`drone-phase-${droneId}`) || '[]'); } catch { return []; }
+}
+
+export function recordPhaseTransition(droneId: string, toStatus: DroneStatus): void {
+  if (typeof window === 'undefined') return;
+  const now = new Date().toISOString();
+
+  // Update lightweight timestamp index (used by Header for wait-time alerts)
+  const timestamps = getStatusTimestamps();
+  timestamps[droneId] = { status: toStatus, enteredAt: now };
+  localStorage.setItem('drone-status-timestamps', JSON.stringify(timestamps));
+
+  // Update full phase history
+  const history = getDronePhaseHistory(droneId);
+  const updated = history.map((e, i) =>
+    i === history.length - 1 && !e.exitedAt ? { ...e, exitedAt: now } : e
+  );
+  updated.push({ status: toStatus, enteredAt: now });
+  localStorage.setItem(`drone-phase-${droneId}`, JSON.stringify(updated));
+}
+
+// ── Return records ───────────────────────────────────────────────────────────
+
+export function getDroneReturns(droneId: string): DroneReturn[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem(`drone-returns-${droneId}`) || '[]'); } catch { return []; }
+}
+
+export function saveDroneReturns(droneId: string, returns: DroneReturn[]): void {
+  localStorage.setItem(`drone-returns-${droneId}`, JSON.stringify(returns));
 }
