@@ -13,7 +13,8 @@ import {
 } from '@/lib/utils';
 import {
   Plane, ArrowLeft, Clock, MapPin,
-  User, AlertTriangle, ClipboardList, ExternalLink
+  User, AlertTriangle, ClipboardList, ExternalLink,
+  CheckCircle2, XCircle, HelpCircle,
 } from 'lucide-react';
 import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
@@ -310,7 +311,19 @@ export default function DroneDetailClient({ id }: { id: string }) {
           </div>
         </div>
         {/* Drone Health Panel */}
-        <DroneHealthPanel droneId={id} currentStatus={drone.status} allWOs={allWOs} canManage={can('edit_drone_compliance')} refreshSignal={healthRefresh} />
+        <DroneHealthPanel
+          droneId={id}
+          currentStatus={drone.status}
+          allWOs={allWOs}
+          canManage={can('edit_drone_compliance')}
+          refreshSignal={healthRefresh}
+          flightTestStatus={drone.flightTestStatus}
+          flightTestDate={drone.flightTestDate}
+          onUpdateFlightTest={(status, date) => {
+            update('flightTestStatus', status);
+            if (date) update('flightTestDate', date);
+          }}
+        />
 
         {pendingCycle && (
           <CycleLogModal
@@ -368,14 +381,23 @@ const REASON_LABELS: Record<DroneReturn['reason'], string> = {
   issue: 'Issue', rca: 'RCA', other: 'Other',
 };
 
+const RCA_MAINTENANCE_STATUSES = new Set<DroneStatus>([
+  'ready_to_rca', 'engineering_rca', 'rca_ready_to_redress',
+  'drone_redress', 'kit_ingestion', 'delivered',
+]);
+
 function DroneHealthPanel({
   droneId, currentStatus, allWOs, canManage, refreshSignal,
+  flightTestStatus, flightTestDate, onUpdateFlightTest,
 }: {
   droneId: string;
   currentStatus: DroneStatus;
   allWOs: WorkOrder[];
   canManage: boolean;
   refreshSignal?: number;
+  flightTestStatus?: 'pass' | 'fail' | 'pending';
+  flightTestDate?: string;
+  onUpdateFlightTest: (status: 'pass' | 'fail' | 'pending', date?: string) => void;
 }) {
   const [phaseHistory, setPhaseHistory] = useState<PhaseEntry[]>([]);
   const [returns, setReturns] = useState<DroneReturn[]>([]);
@@ -413,6 +435,9 @@ function DroneHealthPanel({
   const mttrMinutes = returns.length > 0
     ? avg(returns.map(r => r.leadTimeMinutes + r.setupTimeMinutes + r.cycleTimeMinutes))
     : null;
+
+  const hasMaintenanceActivity = returns.some(r => r.reason === 'rca' || r.reason === 'maintenance' || r.reason === 'crash' || r.reason === 'issue')
+    || RCA_MAINTENANCE_STATUSES.has(currentStatus);
 
   const lastReturn = [...returns].sort((a, b) => new Date(b.returnedAt).getTime() - new Date(a.returnedAt).getTime())[0];
   const previousTickets = allWOs.filter(wo => wo.droneId === droneId && wo.status === 'completed');
@@ -476,6 +501,49 @@ function DroneHealthPanel({
           <p className="text-xs text-gray-700 mt-0.5">mean time to redress</p>
         </div>
       </div>
+
+      {/* Flight Test Status */}
+      {(hasMaintenanceActivity || returns.length > 0) && (
+        <div className="flex flex-wrap items-center gap-3 p-3 bg-gray-800/60 border border-gray-700 rounded-xl">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {flightTestStatus === 'pass' && <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />}
+            {flightTestStatus === 'fail' && <XCircle className="w-4 h-4 text-red-400 flex-shrink-0" />}
+            {(flightTestStatus === 'pending' || !flightTestStatus) && <HelpCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />}
+            <div>
+              <p className="text-xs font-medium text-white">Post-Maintenance Flight Test</p>
+              {flightTestDate && <p className="text-xs text-gray-500">{new Date(flightTestDate).toLocaleDateString()}</p>}
+              {!flightTestDate && <p className="text-xs text-gray-600">Update from Slack test result</p>}
+            </div>
+            <span className={cn('ml-2 text-xs px-2 py-0.5 rounded border font-medium',
+              flightTestStatus === 'pass' ? 'bg-green-500/15 text-green-400 border-green-500/25' :
+              flightTestStatus === 'fail' ? 'bg-red-500/15 text-red-400 border-red-500/25' :
+              'bg-amber-500/15 text-amber-400 border-amber-500/25'
+            )}>
+              {flightTestStatus === 'pass' ? 'Passed' : flightTestStatus === 'fail' ? 'Failed' : 'Pending'}
+            </span>
+          </div>
+          {canManage && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {(['pass', 'fail', 'pending'] as const).map(s => (
+                <button
+                  key={s}
+                  onClick={() => onUpdateFlightTest(s, flightTestStatus !== s ? new Date().toISOString().slice(0, 10) : flightTestDate)}
+                  className={cn(
+                    'px-2.5 py-1 rounded-lg text-xs font-medium border transition-all',
+                    flightTestStatus === s
+                      ? s === 'pass' ? 'bg-green-500/20 border-green-500/40 text-green-400'
+                        : s === 'fail' ? 'bg-red-500/20 border-red-500/40 text-red-400'
+                        : 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                      : 'border-gray-700 text-gray-500 hover:text-white hover:border-gray-500'
+                  )}
+                >
+                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* MTTF + last return */}
       <div className="flex flex-wrap gap-4 text-xs">

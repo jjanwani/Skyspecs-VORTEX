@@ -102,6 +102,8 @@ export interface Drone extends SFSyncMeta {
   deploymentRegion?: string;
   crashHistory: number;
   rcaCompleted: boolean;
+  flightTestStatus?: 'pass' | 'fail' | 'pending';
+  flightTestDate?: string;
   salesforceAssetId?: string;
 }
 

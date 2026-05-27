@@ -7,7 +7,7 @@ import { InventoryCategory, InventoryItem, PIPOStatus } from '@/lib/types';
 import { getPIPOStatusColor, getPIPOStatusLabel, formatDate, cn } from '@/lib/utils';
 import {
   Search, Package, AlertTriangle, Filter, ChevronUp, ChevronDown,
-  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check, Plus
+  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check, Plus, Upload, ImageIcon,
 } from 'lucide-react';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import AddInventoryModal from '@/components/modals/AddInventoryModal';
@@ -73,6 +73,7 @@ export default function InventoryPage() {
   const [itemOverrides, setItemOverrides] = useState<Record<string, ItemOverrides>>({});
   const [userInventory, setUserInventory] = useState<InventoryItem[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [itemImages, setItemImages] = useState<Record<string, string>>({});
 
   useEffect(() => {
     const savedMin = localStorage.getItem('inventory-min-qty');
@@ -81,8 +82,35 @@ export default function InventoryPage() {
     if (savedLinks) setPurchaseLinks(JSON.parse(savedLinks));
     const savedOverrides = localStorage.getItem('inventory-overrides');
     if (savedOverrides) setItemOverrides(JSON.parse(savedOverrides));
+    const savedImages = localStorage.getItem('inventory-images');
+    if (savedImages) setItemImages(JSON.parse(savedImages));
     setUserInventory(getUserInventory());
   }, []);
+
+  const handleImageUpload = (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const dataUrl = ev.target?.result as string;
+      setItemImages(prev => {
+        const next = { ...prev, [itemId]: dataUrl };
+        try { localStorage.setItem('inventory-images', JSON.stringify(next)); } catch {}
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const removeImage = (itemId: string) => {
+    setItemImages(prev => {
+      const next = { ...prev };
+      delete next[itemId];
+      try { localStorage.setItem('inventory-images', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  };
 
   const inventoryItems = useMemo(() => [...baseInventoryItems, ...userInventory], [userInventory]);
 
@@ -524,6 +552,35 @@ export default function InventoryPage() {
                                   <span className="text-gray-600">—</span>
                                 )}
                               </div>
+                              {/* Image upload */}
+                              <div className="col-span-2" onClick={e => e.stopPropagation()}>
+                                <p className="text-gray-500 mb-1">Image</p>
+                                {itemImages[item.id] ? (
+                                  <div className="flex items-start gap-2">
+                                    <img
+                                      src={itemImages[item.id]}
+                                      alt={item.name}
+                                      className="w-20 h-20 object-cover rounded-lg border border-gray-700 flex-shrink-0"
+                                    />
+                                    <div className="flex flex-col gap-1 mt-1">
+                                      <label className="cursor-pointer flex items-center gap-1 text-blue-400 hover:text-blue-300 text-xs transition-colors">
+                                        <Upload className="w-3 h-3" /> Replace
+                                        <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(item.id, e)} />
+                                      </label>
+                                      <button onClick={() => removeImage(item.id)} className="flex items-center gap-1 text-red-400 hover:text-red-300 text-xs transition-colors">
+                                        <X className="w-3 h-3" /> Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <label className="cursor-pointer flex items-center gap-1 text-gray-600 hover:text-blue-400 transition-colors text-xs">
+                                    <ImageIcon className="w-3.5 h-3.5" />
+                                    Upload image
+                                    <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(item.id, e)} />
+                                  </label>
+                                )}
+                              </div>
+
                               <div className="col-span-2 md:col-span-4" onClick={e => e.stopPropagation()}>
                                 <p className="text-gray-500 mb-1">Notes</p>
                                 <InlineEdit

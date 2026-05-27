@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
+import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
 import Link from 'next/link';
 import {
   getDroneStatusColor, getDroneStatusLabel,
@@ -14,11 +15,13 @@ import {
 import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
-  Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy
+  Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy,
+  CheckCircle as CheckIcon, XCircle, HelpCircle, Search,
 } from 'lucide-react';
 import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
+import { getUserInventory } from '@/lib/userDataStore';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
@@ -41,6 +44,7 @@ const PART_STATUS_OPTIONS = [
 ];
 
 type PartStatus = 'available' | 'on_order' | 'missing';
+type WOPart = { name: string; qty: number; status: PartStatus; inventoryId?: string };
 
 export default function WODetailClient({ id, woId }: { id: string; woId: string }) {
   const staticWo = workOrders.find(w => w.id === woId);
@@ -51,7 +55,14 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [drone, setDrone] = useState<Drone | null>(staticDrone ?? null);
   const [edits, setEdits] = useState<Partial<WorkOrder>>({});
   const [droneEdits, setDroneEdits] = useState<Partial<Drone>>({});
-  const [partStatusEdits, setPartStatusEdits] = useState<Record<number, PartStatus>>({});
+  const [parts, setParts] = useState<WOPart[]>([]);
+  const [partsLoaded, setPartsLoaded] = useState(false);
+  const [showAddPart, setShowAddPart] = useState(false);
+  const [addPartInventoryId, setAddPartInventoryId] = useState('');
+  const [addPartName, setAddPartName] = useState('');
+  const [addPartQty, setAddPartQty] = useState(1);
+  const [partSearch, setPartSearch] = useState('');
+  const [allInventory, setAllInventory] = useState(baseInventoryItems);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
@@ -65,8 +76,15 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     if (saved) setEdits(JSON.parse(saved));
     const savedDroneEdits = localStorage.getItem(`drone-edits-${id}`);
     if (savedDroneEdits) setDroneEdits(JSON.parse(savedDroneEdits));
-    const savedParts = localStorage.getItem(`workorder-parts-${woId}`);
-    if (savedParts) setPartStatusEdits(JSON.parse(savedParts));
+    const savedParts = localStorage.getItem(`workorder-parts-full-${woId}`);
+    if (savedParts) {
+      setParts(JSON.parse(savedParts));
+    } else {
+      // Will be initialized from wo.parts after baseWo is set
+    }
+    setPartsLoaded(true);
+    const userInv = getUserInventory();
+    if (userInv.length > 0) setAllInventory([...baseInventoryItems, ...userInv]);
     const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (!staticWo) {
@@ -82,6 +100,29 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     }
     setReady(true);
   }, [woId, id]);
+
+  const saveParts = (updated: WOPart[]) => {
+    setParts(updated);
+    localStorage.setItem(`workorder-parts-full-${woId}`, JSON.stringify(updated));
+  };
+
+  const addPart = () => {
+    const inv = allInventory.find(i => i.id === addPartInventoryId);
+    const name = inv ? inv.name : addPartName.trim();
+    if (!name) return;
+    saveParts([...parts, { name, qty: addPartQty, status: 'available', inventoryId: inv?.id }]);
+    setAddPartInventoryId(''); setAddPartName(''); setAddPartQty(1); setPartSearch(''); setShowAddPart(false);
+  };
+
+  const removePart = (index: number) => saveParts(parts.filter((_, i) => i !== index));
+
+  const updatePartStatus = (index: number, status: PartStatus) => {
+    saveParts(parts.map((p, i) => i === index ? { ...p, status } : p));
+  };
+
+  const updatePartQty = (index: number, qty: number) => {
+    saveParts(parts.map((p, i) => i === index ? { ...p, qty } : p));
+  };
 
   const saveTasks = (updated: Task[]) => {
     setTasks(updated);
@@ -127,6 +168,11 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
 
   const wo: WorkOrder = { ...baseWo, ...edits };
 
+  // Initialize parts from wo.parts on first load if no saved parts
+  const effectiveParts: WOPart[] = partsLoaded && parts.length === 0 && !localStorage.getItem(`workorder-parts-full-${woId}`)
+    ? (wo.parts ?? []).map(p => ({ name: p.name, qty: p.qty, status: p.status }))
+    : parts;
+
   const update = (field: keyof WorkOrder, value: unknown) => {
     setEdits(prev => {
       const next = { ...prev, [field]: value };
@@ -139,14 +185,6 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     setDroneEdits(prev => {
       const next = { ...prev, [field]: value };
       localStorage.setItem(`drone-edits-${id}`, JSON.stringify(next));
-      return next;
-    });
-  };
-
-  const updatePartStatus = (index: number, status: PartStatus) => {
-    setPartStatusEdits(prev => {
-      const next = { ...prev, [index]: status };
-      localStorage.setItem(`workorder-parts-${woId}`, JSON.stringify(next));
       return next;
     });
   };
@@ -362,38 +400,126 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
               )}
             </div>
 
-            {wo.parts && wo.parts.length > 0 && (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+            {/* Parts — always shown */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                   <Package className="w-4 h-4 text-blue-400" /> Parts Required
+                  {effectiveParts.length > 0 && (
+                    <span className="text-xs text-gray-500">{effectiveParts.length} item{effectiveParts.length !== 1 ? 's' : ''}</span>
+                  )}
                 </h3>
-                <div className="space-y-2">
-                  {wo.parts.map((part, i) => {
-                    const partStatus = partStatusEdits[i] ?? part.status;
-                    return (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-gray-800 last:border-0">
-                        <div>
-                          <p className="text-xs font-medium text-white">{part.name}</p>
-                          <p className="text-xs text-gray-500">Qty: {part.qty}</p>
-                        </div>
+                {can('edit_wo_parts') && (
+                  <button
+                    onClick={() => setShowAddPart(s => !s)}
+                    className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Add part
+                  </button>
+                )}
+              </div>
+
+              {showAddPart && (
+                <div className="mb-4 p-3 bg-gray-800 rounded-lg border border-gray-700 space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                    <input
+                      autoFocus
+                      type="text"
+                      placeholder="Search inventory or type custom name..."
+                      value={partSearch}
+                      onChange={e => { setPartSearch(e.target.value); setAddPartInventoryId(''); setAddPartName(e.target.value); }}
+                      className="w-full pl-7 pr-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                  {partSearch && (
+                    <div className="max-h-36 overflow-y-auto border border-gray-700 rounded-lg divide-y divide-gray-700/50">
+                      {allInventory.filter(i => i.name.toLowerCase().includes(partSearch.toLowerCase())).slice(0, 8).map(inv => (
+                        <button
+                          key={inv.id}
+                          onClick={() => { setAddPartInventoryId(inv.id); setAddPartName(inv.name); setPartSearch(inv.name); }}
+                          className={cn(
+                            'w-full text-left px-3 py-2 text-xs hover:bg-gray-700 transition-colors flex items-center justify-between',
+                            addPartInventoryId === inv.id ? 'bg-blue-600/20 text-blue-300' : 'text-white'
+                          )}
+                        >
+                          <span>{inv.name}</span>
+                          <span className="text-gray-500">{inv.category} · {inv.currentCount} in stock</span>
+                        </button>
+                      ))}
+                      {allInventory.filter(i => i.name.toLowerCase().includes(partSearch.toLowerCase())).length === 0 && (
+                        <div className="px-3 py-2 text-xs text-gray-500">No match — will add as custom part</div>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 flex-shrink-0">Qty:</span>
+                    <input
+                      type="number" min={1} value={addPartQty}
+                      onChange={e => setAddPartQty(Math.max(1, parseInt(e.target.value) || 1))}
+                      className="w-16 px-2 py-1.5 bg-gray-700 border border-gray-600 rounded text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      onClick={addPart}
+                      disabled={!addPartName.trim()}
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 rounded-lg text-xs text-white font-medium transition-colors"
+                    >
+                      Add
+                    </button>
+                    <button onClick={() => { setShowAddPart(false); setPartSearch(''); setAddPartInventoryId(''); setAddPartName(''); }} className="px-3 py-1.5 border border-gray-600 rounded-lg text-xs text-gray-400 hover:text-white transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {effectiveParts.length === 0 && !showAddPart ? (
+                <p className="text-xs text-gray-600 text-center py-4">No parts assigned yet — click "Add part" to add inventory</p>
+              ) : (
+                <div className="space-y-1">
+                  {effectiveParts.map((part, i) => (
+                    <div key={i} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-800/50 group transition-colors border-b border-gray-800/50 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-white truncate">{part.name}</p>
+                        {part.inventoryId && (
+                          <p className="text-xs text-gray-600">From inventory</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         <InlineEdit
-                          value={partStatus}
+                          value={part.qty}
+                          type="number"
+                          onSave={v => updatePartQty(i, Math.max(1, Number(v)))}
+                          displayClassName="text-xs text-gray-400 w-6 text-center"
+                          disabled={!can('edit_wo_parts')}
+                        />
+                        <span className="text-xs text-gray-600">×</span>
+                        <InlineEdit
+                          value={part.status}
                           type="select"
                           options={PART_STATUS_OPTIONS}
                           onSave={v => updatePartStatus(i, v as PartStatus)}
                           displayClassName={cn('text-xs px-2 py-0.5 rounded border',
-                            partStatus === 'available' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
-                              partStatus === 'on_order' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                                'bg-red-500/10 text-red-400 border-red-500/20'
+                            part.status === 'available' ? 'bg-green-500/10 text-green-400 border-green-500/20' :
+                            part.status === 'on_order' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                            'bg-red-500/10 text-red-400 border-red-500/20'
                           )}
                           disabled={!can('edit_wo_parts')}
                         />
+                        {can('edit_wo_parts') && (
+                          <button
+                            onClick={() => removePart(i)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
             {wo.completionHistory && wo.completionHistory.length > 0 && (
               <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
@@ -434,6 +560,49 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
                   {getDroneStatusLabel({ ...drone, ...droneEdits }.status)}
                 </span>
               </Link>
+              {(wo.type === 'rca' || wo.type === 'maintenance' || wo.type === 'issue') && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Flight Test</p>
+                  <div className="flex items-center justify-between">
+                    {(() => {
+                      const ftStatus = ({ ...drone, ...droneEdits }).flightTestStatus;
+                      return (
+                        <>
+                          <span className={cn('flex items-center gap-1 text-xs',
+                            ftStatus === 'pass' ? 'text-green-400' :
+                            ftStatus === 'fail' ? 'text-red-400' : 'text-amber-400'
+                          )}>
+                            {ftStatus === 'pass' ? <CheckIcon className="w-3.5 h-3.5" /> :
+                             ftStatus === 'fail' ? <XCircle className="w-3.5 h-3.5" /> :
+                             <HelpCircle className="w-3.5 h-3.5" />}
+                            {ftStatus === 'pass' ? 'Passed' : ftStatus === 'fail' ? 'Failed' : 'Pending'}
+                          </span>
+                          {can('edit_drone_compliance') && (
+                            <div className="flex gap-1">
+                              {(['pass', 'fail', 'pending'] as const).map(s => (
+                                <button
+                                  key={s}
+                                  onClick={() => { updateDrone('flightTestStatus', s); updateDrone('flightTestDate', new Date().toISOString().slice(0, 10)); }}
+                                  className={cn('px-2 py-0.5 text-xs rounded border transition-colors',
+                                    ftStatus === s
+                                      ? s === 'pass' ? 'bg-green-500/20 border-green-500/30 text-green-400'
+                                        : s === 'fail' ? 'bg-red-500/20 border-red-500/30 text-red-400'
+                                        : 'bg-amber-500/20 border-amber-500/30 text-amber-400'
+                                      : 'border-gray-700 text-gray-600 hover:text-white'
+                                  )}
+                                >
+                                  {s.charAt(0).toUpperCase() + s.slice(1)}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <p className="text-xs text-gray-600 mt-1">From Slack post-maintenance result</p>
+                </div>
+              )}
               {can('edit_drone_compliance') && (
                 <div>
                   <p className="text-xs text-gray-500 mb-2">Compliance</p>
