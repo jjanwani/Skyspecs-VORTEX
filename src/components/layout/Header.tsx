@@ -152,7 +152,7 @@ export default function Header({ title, subtitle }: HeaderProps) {
         id: `inv-low-${item.id}`,
         type: item.currentCount === 0 ? 'critical' : 'warning',
         title: `Low stock: ${item.name}`,
-        subtitle: `${item.currentCount} remaining (min ${item.minQty})`,
+        subtitle: `${item.currentCount} remaining (minimum ${item.minQty})`,
         href: '/inventory',
       });
     }

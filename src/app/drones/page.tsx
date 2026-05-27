@@ -7,7 +7,7 @@ import { workOrders } from '@/lib/data/workorders';
 import { Drone, DroneStatus, PhaseEntry } from '@/lib/types';
 import { getDroneStatusColor, getDroneStatusLabel, getSFSyncColor, getSFSyncDot, getSFSyncLabel, cn } from '@/lib/utils';
 import Link from 'next/link';
-import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus, LayoutGrid, Kanban, ArrowRight } from 'lucide-react';
+import { Plane, Search, CheckCircle2, XCircle, Clock, MapPin, User, ClipboardList, Plus, LayoutGrid, Kanban } from 'lucide-react';
 import AddDroneModal from '@/components/modals/AddDroneModal';
 import CycleLogModal from '@/components/modals/CycleLogModal';
 import { getUserDrones, saveUserDrones, recordPhaseTransition, getStatusTimestamps } from '@/lib/userDataStore';
@@ -290,59 +290,50 @@ export default function DronesPage() {
 
         {/* ── Board View ── */}
         {viewMode === 'board' && (
-          <div className="-mx-6 px-6 overflow-x-auto pb-4">
-            <div className="flex flex-col gap-4" style={{ minWidth: 'max-content' }}>
+          <div className="-mx-6 px-6 overflow-x-auto" style={{ height: 'calc(100vh - 240px)' }}>
+            <div className="flex gap-2 h-full pb-4" style={{ minWidth: 'max-content' }}>
 
-              {/* Main production flow */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <ArrowRight className="w-3.5 h-3.5 text-gray-500" />
-                  <span className="text-xs text-gray-500 font-medium uppercase tracking-wider">Production Flow</span>
-                </div>
-                <div className="flex gap-3">
-                  {MAIN_FLOW.map((col, i) => (
-                    <BoardColumn
-                      key={col.status}
-                      col={col}
-                      drones={allDrones.filter(d => d.status === col.status)}
-                      isOver={dragOverCol === col.status}
-                      getOpenWOs={getOpenWOs}
-                      onDragOver={e => { e.preventDefault(); setDragOverCol(col.status); }}
-                      onDragLeave={() => setDragOverCol(null)}
-                      onDrop={e => handleDrop(e, col.status)}
-                      showArrow={i < MAIN_FLOW.length - 1}
-                      timestamps={timestamps}
-                      now={now}
-                    />
-                  ))}
-                </div>
+              {/* Production flow columns */}
+              <div className="flex flex-col justify-center pr-1 flex-shrink-0">
+                <span className="text-xs text-gray-600 font-medium uppercase tracking-wider select-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Production</span>
+              </div>
+              {MAIN_FLOW.map(col => (
+                <BoardColumn
+                  key={col.status}
+                  col={col}
+                  drones={allDrones.filter(d => d.status === col.status)}
+                  isOver={dragOverCol === col.status}
+                  getOpenWOs={getOpenWOs}
+                  onDragOver={e => { e.preventDefault(); setDragOverCol(col.status); }}
+                  onDragLeave={() => setDragOverCol(null)}
+                  onDrop={e => handleDrop(e, col.status)}
+                  timestamps={timestamps}
+                  now={now}
+                />
+              ))}
+
+              {/* RCA track divider */}
+              <div className="flex flex-col items-center mx-2 flex-shrink-0 self-stretch gap-1">
+                <div className="flex-1 w-px bg-red-500/20" />
+                <span className="text-xs text-red-400/50 font-medium uppercase tracking-wider select-none" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>RCA</span>
+                <div className="flex-1 w-px bg-red-500/20" />
               </div>
 
-              {/* RCA track */}
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="w-2 h-2 rounded-full bg-red-400" />
-                  <span className="text-xs text-red-400/80 font-medium uppercase tracking-wider">RCA Track</span>
-                </div>
-                <div className="flex gap-3">
-                  {RCA_FLOW.map((col, i) => (
-                    <BoardColumn
-                      key={col.status}
-                      col={col}
-                      drones={allDrones.filter(d => d.status === col.status)}
-                      isOver={dragOverCol === col.status}
-                      getOpenWOs={getOpenWOs}
-                      onDragOver={e => { e.preventDefault(); setDragOverCol(col.status); }}
-                      onDragLeave={() => setDragOverCol(null)}
-                      onDrop={e => handleDrop(e, col.status)}
-                      showArrow={i < RCA_FLOW.length - 1}
-                      timestamps={timestamps}
-                      now={now}
-                    />
-                  ))}
-                </div>
-              </div>
-
+              {/* RCA columns */}
+              {RCA_FLOW.map(col => (
+                <BoardColumn
+                  key={col.status}
+                  col={col}
+                  drones={allDrones.filter(d => d.status === col.status)}
+                  isOver={dragOverCol === col.status}
+                  getOpenWOs={getOpenWOs}
+                  onDragOver={e => { e.preventDefault(); setDragOverCol(col.status); }}
+                  onDragLeave={() => setDragOverCol(null)}
+                  onDrop={e => handleDrop(e, col.status)}
+                  timestamps={timestamps}
+                  now={now}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -377,7 +368,6 @@ interface BoardColumnProps {
   col: BoardColDef;
   drones: Drone[];
   isOver: boolean;
-  showArrow: boolean;
   getOpenWOs: (id: string) => number;
   onDragOver: (e: React.DragEvent) => void;
   onDragLeave: () => void;
@@ -386,48 +376,42 @@ interface BoardColumnProps {
   now: number;
 }
 
-function BoardColumn({ col, drones, isOver, showArrow, getOpenWOs, onDragOver, onDragLeave, onDrop, timestamps, now }: BoardColumnProps) {
+function BoardColumn({ col, drones, isOver, getOpenWOs, onDragOver, onDragLeave, onDrop, timestamps, now }: BoardColumnProps) {
   return (
-    <div className="flex items-start gap-1.5">
-      <div className="flex flex-col w-44 flex-shrink-0">
-        {/* Header */}
-        <div className={cn('px-3 py-2 rounded-t-xl border border-b-0 flex items-center justify-between', ACCENT_HEADER[col.accent])}>
-          <span className="text-xs font-semibold truncate">{col.label}</span>
-          <span className="text-xs font-bold ml-1 flex-shrink-0 opacity-80">{drones.length}</span>
-        </div>
-
-        {/* Drop zone */}
-        <div
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
-          className={cn(
-            'min-h-48 rounded-b-xl border border-t-0 p-2 space-y-2 transition-all',
-            isOver
-              ? cn('border-2', ACCENT_DROP[col.accent])
-              : 'border-gray-800 bg-gray-900/60'
-          )}
-        >
-          {drones.length === 0 && (
-            <div className="h-24 flex items-center justify-center">
-              <p className="text-xs text-gray-700 text-center">Drop here</p>
-            </div>
-          )}
-          {drones.map(drone => (
-            <BoardCard
-              key={drone.id}
-              drone={drone}
-              openWOs={getOpenWOs(drone.id)}
-              enteredAt={timestamps[drone.id]?.enteredAt}
-              now={now}
-            />
-          ))}
-        </div>
+    <div className="flex flex-col w-44 flex-shrink-0 h-full">
+      {/* Header */}
+      <div className={cn('px-3 py-2 rounded-t-xl border border-b-0 flex items-center justify-between flex-shrink-0', ACCENT_HEADER[col.accent])}>
+        <span className="text-xs font-semibold truncate">{col.label}</span>
+        <span className="text-xs font-bold ml-1 flex-shrink-0 opacity-80">{drones.length}</span>
       </div>
 
-      {showArrow && (
-        <ArrowRight className="w-3 h-3 text-gray-700 flex-shrink-0 mt-7" />
-      )}
+      {/* Scrollable drop zone */}
+      <div
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        className={cn(
+          'flex-1 overflow-y-auto rounded-b-xl border border-t-0 p-2 space-y-2 transition-all',
+          isOver
+            ? cn('border-2', ACCENT_DROP[col.accent])
+            : 'border-gray-800 bg-gray-900/60'
+        )}
+      >
+        {drones.length === 0 && (
+          <div className="flex items-center justify-center py-8">
+            <p className="text-xs text-gray-700 text-center">Drop here</p>
+          </div>
+        )}
+        {drones.map(drone => (
+          <BoardCard
+            key={drone.id}
+            drone={drone}
+            openWOs={getOpenWOs(drone.id)}
+            enteredAt={timestamps[drone.id]?.enteredAt}
+            now={now}
+          />
+        ))}
+      </div>
     </div>
   );
 }

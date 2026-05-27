@@ -88,6 +88,15 @@ export default function DroneDetailClient({ id }: { id: string }) {
       const cyclePhases = recordPhaseTransition(id, value as DroneStatus);
       if (cyclePhases && cyclePhases.length > 0) setPendingCycle(cyclePhases);
     }
+    if (field === 'assignedTech') {
+      // Propagate to all work orders for this drone unless they've been manually changed
+      const allWOs = [...workOrders, ...JSON.parse(localStorage.getItem('user-workorders') || '[]')];
+      allWOs.filter((wo: { droneId: string }) => wo.droneId === id).forEach((wo: { id: string }) => {
+        const key = `workorder-edits-${wo.id}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '{}');
+        localStorage.setItem(key, JSON.stringify({ ...existing, assignedTech: value }));
+      });
+    }
   };
 
   const allWOs = [...workOrders, ...userWOs];
@@ -134,15 +143,6 @@ export default function DroneDetailClient({ id }: { id: string }) {
                     onSave={v => update('status', v as DroneStatus)}
                     displayClassName={cn('text-xs px-2 py-0.5 rounded border font-medium', getDroneStatusColor(drone.status))}
                     disabled={!can('edit_drone_status')}
-                  />
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500">Build Version</span>
-                  <InlineEdit
-                    value={drone.buildVersion}
-                    onSave={v => update('buildVersion', v)}
-                    displayClassName="text-white font-medium text-xs"
-                    disabled={!can('edit_drone_technical')}
                   />
                 </div>
                 <div className="flex justify-between items-center">
@@ -276,6 +276,7 @@ export default function DroneDetailClient({ id }: { id: string }) {
                   <Link
                     key={wo.id}
                     href={`/drones/${drone.id}/work-orders/${wo.id}`}
+                    target="_blank"
                     className="block bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-blue-500/50 transition-all group"
                   >
                     <div className="flex items-start justify-between gap-3 mb-2">

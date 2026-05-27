@@ -93,7 +93,7 @@ export default function InformationHubPage() {
           <FolderOpen className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm font-medium text-blue-300">Connected to Google Drive</p>
-            <p className="text-xs text-blue-400/70 mt-0.5">Documents are synced from the SkySpecs shared drive. Click any document to open in Google Drive.</p>
+            <p className="text-xs text-blue-400/70 mt-0.5">Documents are synced from the SkySpecs shared drive. Once connected, document descriptions will be auto-generated from Drive metadata. Click any document to open in Google Drive.</p>
           </div>
           <a
             href="https://drive.google.com"

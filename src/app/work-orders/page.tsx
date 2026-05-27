@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import { workOrders as baseWorkOrders } from '@/lib/data/workorders';
+import { drones as baseDrones } from '@/lib/data/drones';
 import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/lib/types';
 import {
   getWorkOrderStatusColor, getWorkOrderStatusLabel,
@@ -13,7 +14,7 @@ import Link from 'next/link';
 import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus, Copy } from 'lucide-react';
 import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
-import { getUserWorkOrders } from '@/lib/userDataStore';
+import { getUserWorkOrders, getUserDrones } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function WorkOrdersPage() {
@@ -23,12 +24,16 @@ export default function WorkOrdersPage() {
   const [typeFilter, setTypeFilter] = useState<WorkOrderType | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<WorkOrderPriority | 'all'>('all');
   const [userWorkOrders, setUserWorkOrders] = useState<WorkOrder[]>([]);
+  const [userDrones, setUserDrones] = useState<{ id: string; name: string }[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<WorkOrder | null>(null);
 
   useEffect(() => {
     setUserWorkOrders(getUserWorkOrders());
+    setUserDrones(getUserDrones());
   }, []);
+
+  const allDrones = useMemo(() => [...baseDrones, ...userDrones].map(d => ({ id: d.id, name: d.name })), [userDrones]);
 
   const allWorkOrders = [...baseWorkOrders, ...userWorkOrders];
 
@@ -165,6 +170,7 @@ export default function WorkOrdersPage() {
                 href={`/drones/${wo.droneId}/work-orders/${wo.id}`}
                 className="absolute inset-0"
                 aria-label={wo.title}
+                target="_blank"
               />
                 <div className="col-span-1 flex flex-col gap-1">
                   <span className="text-xs font-mono text-gray-500">{wo.id}</span>
@@ -241,6 +247,7 @@ export default function WorkOrdersPage() {
       {showAddModal && (
         <AddWorkOrderModal
           existingWorkOrders={allWorkOrders}
+          drones={allDrones}
           onAdd={newWO => {
             setUserWorkOrders(prev => [...prev, newWO]);
             setShowAddModal(false);

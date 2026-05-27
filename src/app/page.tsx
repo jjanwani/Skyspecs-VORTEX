@@ -1,4 +1,5 @@
 import Header from '@/components/layout/Header';
+import LeadTimeAlerts from '@/components/LeadTimeAlerts';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { inventoryItems } from '@/lib/data/inventory';
@@ -167,8 +168,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Inventory Alerts + Recent WOs */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Inventory Alerts + Lead Time Alerts + Recent WOs */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -189,7 +190,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="text-right">
                       <p className={`text-xs font-bold ${item.currentCount === 0 ? 'text-red-400' : item.currentCount < item.minQty ? 'text-amber-400' : 'text-blue-400'}`}>
-                        {item.currentCount} / {item.minQty} min
+                        {item.currentCount} / {item.minQty} minimum
                       </p>
                       <p className="text-xs text-gray-500">
                         {item.pipoStatus === 'on_order' ? 'On order' : item.repurchaseFlag ? 'Reorder flagged' : 'Low stock'}
@@ -213,6 +214,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          <LeadTimeAlerts />
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
             <div className="flex items-center justify-between mb-4">

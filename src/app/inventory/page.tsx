@@ -47,7 +47,13 @@ function StockBar({ current, min, max }: { current: number; min: number; max: nu
   );
 }
 
-type ItemOverrides = Partial<Pick<InventoryItem, 'currentCount' | 'pipoStatus' | 'incoming' | 'assignedTech' | 'location' | 'notes' | 'repurchaseFlag'>>;
+type ItemOverrides = Partial<Pick<InventoryItem, 'currentCount' | 'pipoStatus' | 'incoming' | 'location' | 'notes' | 'repurchaseFlag'>>;
+
+function calcWeeklyUsage(item: InventoryItem): number {
+  const daysSince = (Date.now() - new Date(item.lastAudit).getTime()) / 86400000;
+  if (daysSince < 7 || item.usageSinceAudit === 0) return item.usageRatePerWeek;
+  return parseFloat((item.usageSinceAudit / (daysSince / 7)).toFixed(1));
+}
 
 export default function InventoryPage() {
   const { can } = useAuth();
@@ -121,7 +127,6 @@ export default function InventoryPage() {
       const matchSearch = !search ||
         item.name.toLowerCase().includes(search.toLowerCase()) ||
         item.category.toLowerCase().includes(search.toLowerCase()) ||
-        (item.assignedTech?.toLowerCase().includes(search.toLowerCase())) ||
         (item.location?.toLowerCase().includes(search.toLowerCase())) ||
         (item.ecn?.toLowerCase().includes(search.toLowerCase()));
       const matchCat = categoryFilter === 'all' || item.category === categoryFilter;
@@ -220,7 +225,7 @@ export default function InventoryPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="Search by name, category, tech, location, ECN..."
+                placeholder="Search by name, category, location..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
@@ -281,7 +286,6 @@ export default function InventoryPage() {
                       Category <SortIcon k="category" />
                     </button>
                   </th>
-                  <th className="text-left px-4 py-3 text-gray-500 font-medium uppercase tracking-wide">Tech</th>
                   <th className="text-left px-4 py-3 text-gray-500 font-medium uppercase tracking-wide whitespace-nowrap">
                     <button onClick={() => toggleSort('currentCount')} className="flex items-center gap-1 hover:text-white transition-colors">
                       Stock <SortIcon k="currentCount" />
@@ -324,19 +328,9 @@ export default function InventoryPage() {
                             <span className={cn('font-medium', isLow ? 'text-red-300' : 'text-white')}>{item.name}</span>
                             {item.newRelease && <span className="bg-violet-500/20 text-violet-400 border border-violet-500/20 px-1 py-0.5 rounded text-xs">NEW</span>}
                           </div>
-                          {item.ecn && <p className="text-gray-600 mt-0.5">{item.ecn}</p>}
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-gray-400">{item.category}</span>
-                        </td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <InlineEdit
-                            value={item.assignedTech ?? ''}
-                            onSave={v => updateItemField(item.id, 'assignedTech', v)}
-                            displayClassName="text-gray-400"
-                            emptyLabel="—"
-                            disabled={!can('edit_inventory_counts')}
-                          />
                         </td>
                         <td className="px-4 py-3 min-w-[140px]">
                           <div onClick={e => e.stopPropagation()}>
@@ -423,7 +417,7 @@ export default function InventoryPage() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <span className="text-gray-400">{item.usageRatePerWeek}/wk</span>
+                          <span className="text-gray-400">{calcWeeklyUsage(item)}/wk</span>
                         </td>
                         <td className="px-4 py-3">
                           <span className="text-gray-500">{formatDate(item.lastAudit)}</span>
@@ -431,7 +425,7 @@ export default function InventoryPage() {
                       </tr>
                       {expanded && (
                         <tr className="border-b border-gray-800 bg-gray-800/30">
-                          <td colSpan={9} className="px-4 py-4">
+                          <td colSpan={8} className="px-4 py-4">
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-xs">
                               <div onClick={e => e.stopPropagation()}>
                                 <p className="text-gray-500 mb-1">Location</p>
@@ -442,10 +436,6 @@ export default function InventoryPage() {
                                   emptyLabel="—"
                                   disabled={!can('edit_inventory_counts')}
                                 />
-                              </div>
-                              <div>
-                                <p className="text-gray-500 mb-1">Qty per Assembly</p>
-                                <p className="text-white">{item.qtyPerAssembly}</p>
                               </div>
                               <div>
                                 <p className="text-gray-500 mb-1">In Stock (raw)</p>
@@ -471,12 +461,6 @@ export default function InventoryPage() {
                                 <p className="text-gray-500 mb-1">PIPO Plan</p>
                                 <p className="text-white">{item.pipoPlan || '—'}</p>
                               </div>
-                              {item.ecn && (
-                                <div>
-                                  <p className="text-gray-500 mb-1">ECN</p>
-                                  <p className="text-blue-400">{item.ecn}</p>
-                                </div>
-                              )}
                               <div>
                                 <p className="text-gray-500 mb-1">Last Updated</p>
                                 <p className="text-white">{formatDate(item.lastUpdated)}</p>

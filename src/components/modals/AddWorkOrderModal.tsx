@@ -8,6 +8,7 @@ import { getWorkOrderTypeLabel } from '@/lib/utils';
 
 interface Props {
   existingWorkOrders: WorkOrder[];
+  drones: { id: string; name: string }[];
   onAdd: (wo: WorkOrder) => void;
   onClose: () => void;
 }
@@ -16,7 +17,7 @@ type Step = 'pick' | 'form';
 
 function blankForm() {
   return {
-    title: '', droneName: '', type: 'maintenance' as WorkOrderType,
+    title: '', droneId: '', droneName: '', type: 'maintenance' as WorkOrderType,
     priority: 'medium' as WorkOrderPriority, status: 'open' as WorkOrderStatus,
     assigned: '', estimatedHours: 1, description: '', ernReference: '', notes: '',
     parts: [] as WorkOrder['parts'],
@@ -26,6 +27,7 @@ function blankForm() {
 function templateToForm(wo: WorkOrder) {
   return {
     title: wo.title,
+    droneId: '',
     droneName: '',
     type: wo.type,
     priority: wo.priority,
@@ -39,7 +41,7 @@ function templateToForm(wo: WorkOrder) {
   };
 }
 
-export default function AddWorkOrderModal({ existingWorkOrders, onAdd, onClose }: Props) {
+export default function AddWorkOrderModal({ existingWorkOrders, drones, onAdd, onClose }: Props) {
   const [step, setStep] = useState<Step>('pick');
   const [form, setForm] = useState(blankForm());
   const [templateLabel, setTemplateLabel] = useState<string | null>(null);
@@ -78,8 +80,8 @@ export default function AddWorkOrderModal({ existingWorkOrders, onAdd, onClose }
 
     const newWO: WorkOrder = {
       id,
-      droneId: form.droneName.trim() || 'unknown',
-      droneName: form.droneName.trim() || 'Unknown',
+      droneId: form.droneId || 'unassigned',
+      droneName: form.droneName || 'Unassigned',
       title: form.title.trim(),
       description: form.description.trim(),
       type: form.type,
@@ -154,7 +156,7 @@ export default function AddWorkOrderModal({ existingWorkOrders, onAdd, onClose }
               >
                 <Sparkles className="w-4 h-4 text-blue-400 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-white">New from scratch</p>
+                  <p className="text-sm font-medium text-white">Create new template</p>
                   <p className="text-xs text-gray-500">Fill in all fields manually</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-blue-400 transition-colors" />
@@ -214,8 +216,18 @@ export default function AddWorkOrderModal({ existingWorkOrders, onAdd, onClose }
             </div>
 
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Drone Name / ID</label>
-              <input type="text" placeholder="FS-008" value={form.droneName} onChange={e => set('droneName', e.target.value)} className={inputCls} />
+              <label className="block text-xs text-gray-400 mb-1">Assign to Drone <span className="text-gray-600 font-normal">(optional)</span></label>
+              <select
+                value={form.droneId}
+                onChange={e => {
+                  const d = drones.find(x => x.id === e.target.value);
+                  setForm(prev => ({ ...prev, droneId: e.target.value, droneName: d?.name ?? '' }));
+                }}
+                className={selectCls}
+              >
+                <option value="">— Unassigned —</option>
+                {drones.map(d => <option key={d.id} value={d.id}>{d.name} ({d.id})</option>)}
+              </select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
