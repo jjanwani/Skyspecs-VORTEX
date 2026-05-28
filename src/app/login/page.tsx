@@ -8,19 +8,7 @@ import Script from 'next/script';
 
 const CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ?? '';
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        id: {
-          initialize: (config: object) => void;
-          renderButton: (el: HTMLElement, config: object) => void;
-          prompt: () => void;
-        };
-      };
-    };
-  }
-}
+// Window.google is declared globally in src/lib/driveApi.ts with full type coverage
 
 function decodeGoogleJwt(token: string): { email: string; name: string; picture?: string } {
   const payload = token.split('.')[1];
@@ -130,9 +118,9 @@ export default function LoginPage() {
 
   const initGoogle = () => {
     if (!window.google || !CLIENT_ID) return;
-    window.google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredential });
+    window.google?.accounts?.id?.initialize({ client_id: CLIENT_ID, callback: handleCredential });
     if (buttonRef.current) {
-      window.google.accounts.id.renderButton(buttonRef.current, {
+      window.google?.accounts?.id?.renderButton(buttonRef.current, {
         theme: 'filled_black',
         size: 'large',
         width: 320,
