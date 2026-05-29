@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  X, Search, FileText, Image as ImageIcon, Video, FolderOpen,
+  X, Search, FileText, Image as ImageIcon, Video, FolderOpen, ChevronRight,
   ExternalLink, Check, Clock, Sparkles, RefreshCw, Wifi, WifiOff, Loader2,
 } from 'lucide-react';
 import { WorkOrder } from '@/lib/types';
@@ -22,13 +22,18 @@ export interface DriveAttachment {
   attachedAt: string;
 }
 
+interface FolderCrumb {
+  id: string;
+  name: string;
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const SHARED_FOLDER_ID = '1XgYzQXGMM7RmnoE-pAQFZIqod1Q85CNl';
+const ROOT_CRUMB: FolderCrumb = { id: SHARED_FOLDER_ID, name: 'SkySpecs Drive' };
 const HISTORY_KEY = 'drive-links-history';
-const SESSION_CACHE_KEY = 'drive-folder-cache';
 
-// Static hub docs mapped to DriveFile shape for uniform rendering
+// Static hub docs mapped to DriveFile shape for uniform rendering (offline fallback)
 const HUB_FILES: DriveFile[] = HUB_DOCS.map(d => ({
   id: d.id,
   name: d.name,
@@ -50,11 +55,13 @@ export function addToHistory(file: DriveAttachment): void {
   localStorage.setItem(HISTORY_KEY, JSON.stringify([file, ...history].slice(0, 30)));
 }
 
-// ── Session cache helpers ─────────────────────────────────────────────────────
+// ── Per-folder session cache ──────────────────────────────────────────────────
 
-function getCachedDriveFiles(): DriveFile[] | null {
+function cacheKey(folderId: string) { return `drive-folder-cache-${folderId}`; }
+
+function getCachedFolder(folderId: string): DriveFile[] | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_CACHE_KEY);
+    const raw = sessionStorage.getItem(cacheKey(folderId));
     if (!raw) return null;
     const { files, fetchedAt } = JSON.parse(raw);
     if (Date.now() - fetchedAt > 5 * 60 * 1000) return null; // 5-min TTL
@@ -62,11 +69,15 @@ function getCachedDriveFiles(): DriveFile[] | null {
   } catch { return null; }
 }
 
-function setCachedDriveFiles(files: DriveFile[]): void {
-  if (files.length === 0) return; // don't cache empty — may be a Shared Drive access issue
+function setCachedFolder(folderId: string, files: DriveFile[]): void {
+  if (files.length === 0) return; // don't cache empty — may be an access issue
   try {
-    sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({ files, fetchedAt: Date.now() }));
+    sessionStorage.setItem(cacheKey(folderId), JSON.stringify({ files, fetchedAt: Date.now() }));
   } catch {}
+}
+
+function clearFolderCache(folderId: string) {
+  try { sessionStorage.removeItem(cacheKey(folderId)); } catch {}
 }
 
 // ── Suggestion scoring ────────────────────────────────────────────────────────
@@ -75,21 +86,18 @@ function scoreFile(name: string, wo: WorkOrder): number {
   const n = name.toLowerCase();
   let score = 0;
 
-  // ERN reference is the strongest signal
   if (wo.ernReference) {
     if (n.includes(wo.ernReference.toLowerCase())) score += 100;
     const ernNum = wo.ernReference.replace(/\D/g, '');
     if (ernNum.length > 2 && n.includes(ernNum)) score += 60;
   }
 
-  // Title keywords (skip very short / stop words)
   const stop = new Set(['the', 'and', 'for', 'from', 'with', 'this', 'that', 'to', 'of', 'a', 'an', 'in', 'on', 'at', 'by', 'or', 'is', 'it']);
   const titleWords = wo.title.toLowerCase().split(/[\s\-_\/]+/).filter(w => w.length > 2 && !stop.has(w));
   for (const word of titleWords) {
     if (n.includes(word)) score += 15;
   }
 
-  // WO type keywords
   const typeKws: Record<string, string[]> = {
     rca: ['rca', 'root cause', 'crash', 'investigation', 'analysis', 'failure'],
     maintenance: ['maintenance', 'replacement', 'procedure', 'guide', 'repair', 'troubleshoot', 'ern', 'checklist'],
@@ -117,13 +125,34 @@ function FileTypeIcon({ mimeType, className }: { mimeType: string; className?: s
 }
 
 function FileRow({
-  file, isAttached, onAttach, onDetach,
+  file, isAttached, onAttach, onDetach, onOpenFolder,
 }: {
   file: DriveFile;
   isAttached: boolean;
   onAttach: (f: DriveFile) => void;
   onDetach: (fileId: string) => void;
+  onOpenFolder?: (f: DriveFile) => void;
 }) {
+  const isFolder = mimeTypeLabel(file.mimeType) === 'folder';
+
+  if (isFolder) {
+    return (
+      <button
+        onClick={() => onOpenFolder?.(file)}
+        className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-800/60 w-full text-left transition-colors group"
+      >
+        <FileTypeIcon mimeType={file.mimeType} className="w-4 h-4" />
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-white truncate group-hover:text-amber-300 transition-colors">{file.name}</p>
+          {file.modifiedTime && (
+            <p className="text-xs text-gray-600">{file.modifiedTime.slice(0, 10)}</p>
+          )}
+        </div>
+        <ChevronRight className="w-3.5 h-3.5 text-gray-600 group-hover:text-gray-400 flex-shrink-0" />
+      </button>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-gray-800/60 group transition-colors">
       <FileTypeIcon mimeType={file.mimeType} className="w-4 h-4" />
@@ -204,36 +233,100 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
   const [driveStatus, setDriveStatus] = useState<'idle' | 'connecting' | 'loaded' | 'error'>(
     getDriveToken() ? 'loaded' : 'idle'
   );
-  const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
+  // Root-level files (for suggestions)
+  const [rootFiles, setRootFiles] = useState<DriveFile[]>([]);
+  // Current folder contents (changes as user navigates)
+  const [currentItems, setCurrentItems] = useState<DriveFile[]>([]);
+  const [folderLoading, setFolderLoading] = useState(false);
+  const [folderStack, setFolderStack] = useState<FolderCrumb[]>([ROOT_CRUMB]);
   const [driveError, setDriveError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [history, setHistory] = useState<DriveAttachment[]>([]);
 
   const attachedIds = useMemo(() => new Set(attached.map(a => a.fileId)), [attached]);
+  const isLive = driveStatus === 'loaded' && rootFiles.length > 0;
+  const currentCrumb = folderStack[folderStack.length - 1];
 
   useEffect(() => {
     setHistory(getHistory());
-    // Auto-load if we already have a token
-    if (getDriveToken()) loadDriveFiles();
+    if (getDriveToken()) loadRootFolder();
   }, []);
 
-  const loadDriveFiles = useCallback(async () => {
-    const cached = getCachedDriveFiles();
-    if (cached) { setDriveFiles(cached); setDriveStatus('loaded'); return; }
+  const loadRootFolder = useCallback(async (forceRefresh = false) => {
+    if (forceRefresh) clearFolderCache(SHARED_FOLDER_ID);
+
+    const cached = getCachedFolder(SHARED_FOLDER_ID);
+    if (cached) {
+      setRootFiles(cached);
+      setCurrentItems(cached);
+      setFolderStack([ROOT_CRUMB]);
+      setDriveStatus('loaded');
+      return;
+    }
 
     setDriveStatus('connecting');
     setDriveError(null);
     try {
       await requestDriveAccess();
       const files = await listFolder(SHARED_FOLDER_ID);
-      setCachedDriveFiles(files);
-      setDriveFiles(files);
+      setCachedFolder(SHARED_FOLDER_ID, files);
+      setRootFiles(files);
+      setCurrentItems(files);
+      setFolderStack([ROOT_CRUMB]);
       setDriveStatus('loaded');
     } catch (e) {
       setDriveStatus('error');
       setDriveError(e instanceof Error ? e.message : 'Failed to connect to Drive');
     }
   }, []);
+
+  const navigateInto = useCallback(async (folder: DriveFile) => {
+    setSearch('');
+    const cached = getCachedFolder(folder.id);
+    if (cached) {
+      setCurrentItems(cached);
+      setFolderStack(s => [...s, { id: folder.id, name: folder.name }]);
+      return;
+    }
+    setFolderLoading(true);
+    try {
+      const files = await listFolder(folder.id);
+      setCachedFolder(folder.id, files);
+      setCurrentItems(files);
+      setFolderStack(s => [...s, { id: folder.id, name: folder.name }]);
+    } catch (e) {
+      console.error('Failed to open folder', e);
+    } finally {
+      setFolderLoading(false);
+    }
+  }, []);
+
+  const navigateTo = useCallback(async (crumb: FolderCrumb, index: number) => {
+    if (index === folderStack.length - 1) return; // already here
+    setSearch('');
+    const isRoot = crumb.id === SHARED_FOLDER_ID;
+    if (isRoot) {
+      setCurrentItems(rootFiles);
+      setFolderStack([ROOT_CRUMB]);
+      return;
+    }
+    const cached = getCachedFolder(crumb.id);
+    setFolderStack(s => s.slice(0, index + 1));
+    if (cached) {
+      setCurrentItems(cached);
+      return;
+    }
+    setFolderLoading(true);
+    try {
+      const files = await listFolder(crumb.id);
+      setCachedFolder(crumb.id, files);
+      setCurrentItems(files);
+    } catch (e) {
+      console.error('Failed to navigate to folder', e);
+    } finally {
+      setFolderLoading(false);
+    }
+  }, [folderStack, rootFiles]);
 
   const handleAttach = (file: DriveFile) => {
     const attachment: DriveAttachment = {
@@ -248,42 +341,52 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
     onAttach(attachment);
   };
 
-  // Source of truth: live Drive files if connected, else static hub docs
-  const allFiles = driveStatus === 'loaded' && driveFiles.length > 0 ? driveFiles : HUB_FILES;
-  const isLive = driveStatus === 'loaded' && driveFiles.length > 0;
+  // Offline fallback
+  const offlineFiles = HUB_FILES;
 
-  // Filter by search
-  const filteredFiles = useMemo(() => {
-    if (!search.trim()) return allFiles;
+  // Files-only list for the current folder (folders are always shown separately at top)
+  const currentFolders = useMemo(
+    () => currentItems.filter(f => mimeTypeLabel(f.mimeType) === 'folder'),
+    [currentItems]
+  );
+  const currentFiles = useMemo(
+    () => currentItems.filter(f => mimeTypeLabel(f.mimeType) !== 'folder'),
+    [currentItems]
+  );
+
+  // Filtered view of current folder
+  const filteredFolders = useMemo(() => {
+    if (!search.trim()) return currentFolders;
     const q = search.toLowerCase();
-    return allFiles.filter(f =>
-      f.name.toLowerCase().includes(q) || f.description?.toLowerCase().includes(q)
-    );
-  }, [allFiles, search]);
+    return currentFolders.filter(f => f.name.toLowerCase().includes(q));
+  }, [currentFolders, search]);
 
-  // Suggestions: score all files, take top 5 with score > 0
+  const filteredFiles = useMemo(() => {
+    if (!search.trim()) return currentFiles;
+    const q = search.toLowerCase();
+    return currentFiles.filter(f => f.name.toLowerCase().includes(q) || f.description?.toLowerCase().includes(q));
+  }, [currentFiles, search]);
+
+  // Suggestions: scored from root-level files only (files, not folders)
   const suggestions = useMemo(() => {
-    if (search.trim()) return []; // hide suggestions while searching
-    return allFiles
+    if (search.trim()) return [];
+    const sourceFiles = isLive
+      ? rootFiles.filter(f => mimeTypeLabel(f.mimeType) !== 'folder')
+      : offlineFiles;
+    return sourceFiles
       .map(f => ({ file: f, score: scoreFile(f.name, wo) }))
       .filter(x => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(x => x.file);
-  }, [allFiles, wo, search]);
+  }, [rootFiles, isLive, offlineFiles, wo, search]);
 
-  // History items not already in suggestions
   const recentHistory = useMemo(() => {
     const sugIds = new Set(suggestions.map(f => f.id));
     return history.filter(h => !sugIds.has(h.fileId)).slice(0, 6);
   }, [history, suggestions]);
 
-  // Browse list: all files minus suggestions when not searching
-  const browseFiles = useMemo(() => {
-    if (search.trim()) return filteredFiles;
-    const sugIds = new Set(suggestions.map(f => f.id));
-    return allFiles.filter(f => !sugIds.has(f.id));
-  }, [allFiles, suggestions, filteredFiles, search]);
+  const isAtRoot = folderStack.length === 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -304,15 +407,14 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
             )}
           </div>
           <div className="flex items-center gap-3">
-            {/* Connection status */}
-            {driveStatus === 'loaded' && driveFiles.length > 0 ? (
+            {driveStatus === 'loaded' && rootFiles.length > 0 ? (
               <span className="flex items-center gap-1.5 text-xs text-green-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 Live from Drive
               </span>
-            ) : driveStatus === 'loaded' && driveFiles.length === 0 ? (
+            ) : driveStatus === 'loaded' && rootFiles.length === 0 ? (
               <button
-                onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); resetDriveToken(); loadDriveFiles(); }}
+                onClick={() => { resetDriveToken(); loadRootFolder(true); }}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
                 title="No files returned — click to re-authenticate with Drive scope"
               >
@@ -324,23 +426,22 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
               </span>
             ) : driveStatus === 'error' ? (
               <button
-                onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); resetDriveToken(); loadDriveFiles(); }}
+                onClick={() => { resetDriveToken(); loadRootFolder(true); }}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-                title="Click to retry"
               >
                 <WifiOff className="w-3 h-3" /> {driveError ?? 'Error'} — Retry
               </button>
             ) : (
               <button
-                onClick={loadDriveFiles}
+                onClick={() => loadRootFolder()}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
               >
                 <Wifi className="w-3 h-3" /> Connect to Drive
               </button>
             )}
-            {driveStatus === 'loaded' && driveFiles.length > 0 && (
+            {driveStatus === 'loaded' && rootFiles.length > 0 && (
               <button
-                onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); loadDriveFiles(); }}
+                onClick={() => loadRootFolder(true)}
                 className="text-gray-600 hover:text-gray-300 transition-colors"
                 title="Refresh from Drive"
               >
@@ -360,7 +461,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
             <input
               autoFocus
               type="text"
-              placeholder={isLive ? 'Search files in SkySpecs Drive…' : 'Search documents…'}
+              placeholder={isLive ? `Search in ${currentCrumb.name}…` : 'Search documents…'}
               value={search}
               onChange={e => setSearch(e.target.value)}
               className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
@@ -377,8 +478,8 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-          {/* Suggested */}
-          {suggestions.length > 0 && (
+          {/* Suggestions — only at root, no search active */}
+          {isAtRoot && suggestions.length > 0 && !search && (
             <Section icon={<Sparkles className="w-3.5 h-3.5" />} label="Suggested for this work order" count={suggestions.length}>
               <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
                 {suggestions.map(f => (
@@ -395,7 +496,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
           )}
 
           {/* Currently attached */}
-          {attached.length > 0 && (
+          {isAtRoot && attached.length > 0 && !search && (
             <Section icon={<Check className="w-3.5 h-3.5 text-green-400" />} label="Attached to this work order" count={attached.length}>
               <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
                 {attached.map(a => {
@@ -414,8 +515,8 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
             </Section>
           )}
 
-          {/* Recently used across all WOs */}
-          {recentHistory.length > 0 && !search && (
+          {/* Recently used */}
+          {isAtRoot && recentHistory.length > 0 && !search && (
             <Section icon={<Clock className="w-3.5 h-3.5" />} label="Recently used" count={recentHistory.length} defaultOpen={suggestions.length === 0}>
               <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
                 {recentHistory.map(h => {
@@ -434,35 +535,103 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
             </Section>
           )}
 
-          {/* Browse all */}
-          <Section
-            icon={<FolderOpen className="w-3.5 h-3.5" />}
-            label={search ? `Search results` : isLive ? 'All files in SkySpecs Drive' : 'All documents'}
-            count={browseFiles.length}
-            defaultOpen={suggestions.length === 0 && recentHistory.length === 0}
-          >
-            {browseFiles.length === 0 ? (
-              <p className="text-xs text-gray-600 text-center py-6">No documents match your search.</p>
-            ) : (
-              <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
-                {browseFiles.map(f => (
-                  <FileRow
-                    key={f.id}
-                    file={f}
-                    isAttached={attachedIds.has(f.id)}
-                    onAttach={handleAttach}
-                    onDetach={onDetach}
-                  />
-                ))}
-              </div>
-            )}
-          </Section>
+          {/* Folder browser */}
+          {isLive ? (
+            <Section
+              icon={<FolderOpen className="w-3.5 h-3.5" />}
+              label={search ? 'Search results' : currentCrumb.name}
+              count={(filteredFolders.length + filteredFiles.length) || undefined}
+              defaultOpen={!isAtRoot || suggestions.length === 0}
+            >
+              {/* Breadcrumb */}
+              {folderStack.length > 1 && (
+                <div className="flex items-center gap-1 mb-2 flex-wrap">
+                  {folderStack.map((crumb, i) => (
+                    <span key={crumb.id} className="flex items-center gap-1">
+                      {i > 0 && <ChevronRight className="w-3 h-3 text-gray-600 flex-shrink-0" />}
+                      <button
+                        onClick={() => navigateTo(crumb, i)}
+                        className={cn(
+                          'text-xs px-1.5 py-0.5 rounded transition-colors',
+                          i === folderStack.length - 1
+                            ? 'text-white font-medium'
+                            : 'text-blue-400 hover:text-blue-300'
+                        )}
+                      >
+                        {crumb.name}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {folderLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-gray-500 text-xs">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                </div>
+              ) : filteredFolders.length === 0 && filteredFiles.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-6">
+                  {search ? 'No items match your search.' : 'This folder is empty.'}
+                </p>
+              ) : (
+                <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
+                  {filteredFolders.map(f => (
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      isAttached={false}
+                      onAttach={handleAttach}
+                      onDetach={onDetach}
+                      onOpenFolder={navigateInto}
+                    />
+                  ))}
+                  {filteredFiles.map(f => (
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      isAttached={attachedIds.has(f.id)}
+                      onAttach={handleAttach}
+                      onDetach={onDetach}
+                    />
+                  ))}
+                </div>
+              )}
+            </Section>
+          ) : (
+            /* Offline fallback */
+            <Section
+              icon={<FolderOpen className="w-3.5 h-3.5" />}
+              label={search ? 'Search results' : 'All documents'}
+              count={filteredFiles.length}
+              defaultOpen={suggestions.length === 0}
+            >
+              {filteredFiles.length === 0 ? (
+                <p className="text-xs text-gray-600 text-center py-6">No documents match your search.</p>
+              ) : (
+                <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
+                  {offlineFiles
+                    .filter(f => !search || f.name.toLowerCase().includes(search.toLowerCase()))
+                    .map(f => (
+                      <FileRow
+                        key={f.id}
+                        file={f}
+                        isAttached={attachedIds.has(f.id)}
+                        onAttach={handleAttach}
+                        onDetach={onDetach}
+                      />
+                    ))}
+                </div>
+              )}
+            </Section>
+          )}
         </div>
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-gray-800 flex items-center justify-between flex-shrink-0">
           <p className="text-xs text-gray-600">
-            {isLive ? `${allFiles.length} files from Drive` : `${HUB_FILES.length} known documents`}
+            {isLive
+              ? `${currentItems.length} items in ${currentCrumb.name}`
+              : `${HUB_FILES.length} known documents`}
             {attached.length > 0 && ` · ${attached.length} attached to this WO`}
           </p>
           <button onClick={onClose} className="px-4 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 transition-colors">
