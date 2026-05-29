@@ -8,7 +8,7 @@ import {
 import { WorkOrder } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
-  requestDriveAccess, listFolder, getDriveToken, mimeTypeLabel, type DriveFile,
+  requestDriveAccess, listFolder, getDriveToken, resetDriveToken, mimeTypeLabel, type DriveFile,
 } from '@/lib/driveApi';
 import { HUB_DOCS } from '@/lib/data/hubDocs';
 
@@ -305,19 +305,31 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
           </div>
           <div className="flex items-center gap-3">
             {/* Connection status */}
-            {driveStatus === 'loaded' ? (
+            {driveStatus === 'loaded' && driveFiles.length > 0 ? (
               <span className="flex items-center gap-1.5 text-xs text-green-400">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 Live from Drive
               </span>
+            ) : driveStatus === 'loaded' && driveFiles.length === 0 ? (
+              <button
+                onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); resetDriveToken(); loadDriveFiles(); }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors"
+                title="No files returned — click to re-authenticate with Drive scope"
+              >
+                <WifiOff className="w-3 h-3" /> No files — Re-authenticate
+              </button>
             ) : driveStatus === 'connecting' ? (
               <span className="flex items-center gap-1.5 text-xs text-amber-400">
                 <Loader2 className="w-3 h-3 animate-spin" /> Connecting…
               </span>
             ) : driveStatus === 'error' ? (
-              <span className="flex items-center gap-1.5 text-xs text-red-400">
-                <WifiOff className="w-3 h-3" /> {driveError ?? 'Error'}
-              </span>
+              <button
+                onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); resetDriveToken(); loadDriveFiles(); }}
+                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
+                title="Click to retry"
+              >
+                <WifiOff className="w-3 h-3" /> {driveError ?? 'Error'} — Retry
+              </button>
             ) : (
               <button
                 onClick={loadDriveFiles}
@@ -326,7 +338,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
                 <Wifi className="w-3 h-3" /> Connect to Drive
               </button>
             )}
-            {driveStatus === 'loaded' && (
+            {driveStatus === 'loaded' && driveFiles.length > 0 && (
               <button
                 onClick={() => { sessionStorage.removeItem(SESSION_CACHE_KEY); loadDriveFiles(); }}
                 className="text-gray-600 hover:text-gray-300 transition-colors"

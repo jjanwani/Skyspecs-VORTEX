@@ -46,6 +46,13 @@ export function getDriveToken(): string | null {
   return tokenValid() ? _accessToken : null;
 }
 
+/** Force the next requestDriveAccess() call to show the Google consent popup. */
+export function resetDriveToken(): void {
+  _accessToken = null;
+  _tokenExpiry = 0;
+  _tokenClient = null;
+}
+
 // ── OAuth2 token request ──────────────────────────────────────────────────────
 
 /** Ensures the GIS script is loaded before trying to call initTokenClient. */
@@ -141,6 +148,7 @@ export async function listFolder(folderId: string): Promise<DriveFile[]> {
     pageSize: '100',
     includeItemsFromAllDrives: 'true',
     supportsAllDrives: 'true',
+    corpora: 'allDrives',
   });
   return resp.files ?? [];
 }
@@ -170,6 +178,7 @@ export async function searchFiles(query: string, folderId?: string): Promise<Dri
     pageSize: '20',
     includeItemsFromAllDrives: 'true',
     supportsAllDrives: 'true',
+    corpora: 'allDrives',
   });
   return resp.files ?? [];
 }
