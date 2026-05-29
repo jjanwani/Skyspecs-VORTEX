@@ -3,13 +3,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   X, Search, FileText, Image as ImageIcon, Video, FolderOpen, ChevronRight,
-  ExternalLink, Check, Clock, Sparkles, RefreshCw, Wifi, WifiOff, Loader2,
+  ExternalLink, Check, Clock, Sparkles, RefreshCw, Wifi, WifiOff, Loader2, Bot,
 } from 'lucide-react';
 import { WorkOrder } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import {
   requestDriveAccess, listFolder, getDriveToken, resetDriveToken, mimeTypeLabel, type DriveFile,
 } from '@/lib/driveApi';
+import { suggestDriveFiles, geminiAvailable, type SuggestionContext } from '@/lib/geminiApi';
 import { HUB_DOCS } from '@/lib/data/hubDocs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -78,6 +79,29 @@ function setCachedFolder(folderId: string, files: DriveFile[]): void {
 
 function clearFolderCache(folderId: string) {
   try { sessionStorage.removeItem(cacheKey(folderId)); } catch {}
+}
+
+// ── Gemini suggestion cache ───────────────────────────────────────────────────
+
+function geminiCacheKey(woId: string) { return `gemini-suggestions-${woId}`; }
+
+interface GeminiCache { ids: string[]; fileCount: number; }
+
+function getCachedGeminiSuggestions(woId: string, fileCount: number): string[] | null {
+  try {
+    const raw = sessionStorage.getItem(geminiCacheKey(woId));
+    if (!raw) return null;
+    const entry: GeminiCache = JSON.parse(raw);
+    // Invalidate if folder contents changed
+    if (entry.fileCount !== fileCount) return null;
+    return entry.ids;
+  } catch { return null; }
+}
+
+function setCachedGeminiSuggestions(woId: string, ids: string[], fileCount: number): void {
+  try {
+    sessionStorage.setItem(geminiCacheKey(woId), JSON.stringify({ ids, fileCount }));
+  } catch {}
 }
 
 // ── Suggestion scoring ────────────────────────────────────────────────────────
@@ -223,18 +247,21 @@ function Section({
 
 interface Props {
   wo: WorkOrder;
+  parts?: Array<{ name: string }>;
   attached: DriveAttachment[];
   onAttach: (file: DriveAttachment) => void;
   onDetach: (fileId: string) => void;
   onClose: () => void;
 }
 
-export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClose }: Props) {
+export default function DriveLinkModal({ wo, parts, attached, onAttach, onDetach, onClose }: Props) {
   const [driveStatus, setDriveStatus] = useState<'idle' | 'connecting' | 'loaded' | 'error'>(
     getDriveToken() ? 'loaded' : 'idle'
   );
-  // Root-level files (for suggestions)
+  // Root-level files (for folder browser starting point)
   const [rootFiles, setRootFiles] = useState<DriveFile[]>([]);
+  // All files across root + one level of subfolders — used for AI suggestions
+  const [allDeepFiles, setAllDeepFiles] = useState<DriveFile[]>([]);
   // Current folder contents (changes as user navigates)
   const [currentItems, setCurrentItems] = useState<DriveFile[]>([]);
   const [folderLoading, setFolderLoading] = useState(false);
@@ -242,6 +269,11 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
   const [driveError, setDriveError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [history, setHistory] = useState<DriveAttachment[]>([]);
+
+  // AI suggestions state
+  const [aiSuggestions, setAiSuggestions] = useState<DriveFile[]>([]);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'done' | 'error' | 'unavailable'>('idle');
+  const [aiError, setAiError] = useState<string | null>(null);
 
   const attachedIds = useMemo(() => new Set(attached.map(a => a.fileId)), [attached]);
   const isLive = driveStatus === 'loaded' && rootFiles.length > 0;
@@ -252,6 +284,62 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
     if (getDriveToken()) loadRootFolder();
   }, []);
 
+  // Fetch root + all subfolders in parallel to build the deep file list for Gemini
+  const loadDeepFiles = useCallback(async (root: DriveFile[]) => {
+    const rootFileItems = root.filter(f => mimeTypeLabel(f.mimeType) !== 'folder');
+    const rootFolders = root.filter(f => mimeTypeLabel(f.mimeType) === 'folder');
+
+    // Fetch all subfolders in parallel (1 level deep)
+    const subResults = await Promise.allSettled(
+      rootFolders.map(folder =>
+        getCachedFolder(folder.id)
+          ? Promise.resolve(getCachedFolder(folder.id) as DriveFile[])
+          : listFolder(folder.id).then(files => { setCachedFolder(folder.id, files); return files; })
+      )
+    );
+
+    const subFiles = subResults.flatMap(r =>
+      r.status === 'fulfilled'
+        ? r.value.filter(f => mimeTypeLabel(f.mimeType) !== 'folder')
+        : []
+    );
+
+    return [...rootFileItems, ...subFiles];
+  }, []);
+
+  const runAiSuggestions = useCallback(async (deepFiles: DriveFile[]) => {
+    if (!geminiAvailable()) { setAiStatus('unavailable'); return; }
+    if (deepFiles.length === 0) { setAiStatus('done'); return; }
+
+    const cached = getCachedGeminiSuggestions(wo.id, deepFiles.length);
+    if (cached) {
+      const fileMap = new Map(deepFiles.map(f => [f.id, f]));
+      setAiSuggestions(cached.map(id => fileMap.get(id)).filter(Boolean) as DriveFile[]);
+      setAiStatus('done');
+      return;
+    }
+
+    setAiStatus('loading');
+    setAiError(null);
+    try {
+      const ctx: SuggestionContext = {
+        title: wo.title,
+        type: wo.type,
+        notes: wo.notes,
+        ernReference: wo.ernReference,
+        parts: parts?.map(p => p.name),
+      };
+      const ids = await suggestDriveFiles(deepFiles, ctx, 5);
+      setCachedGeminiSuggestions(wo.id, ids, deepFiles.length);
+      const fileMap = new Map(deepFiles.map(f => [f.id, f]));
+      setAiSuggestions(ids.map(id => fileMap.get(id)).filter(Boolean) as DriveFile[]);
+      setAiStatus('done');
+    } catch (e) {
+      setAiStatus('error');
+      setAiError(e instanceof Error ? e.message : 'AI suggestion failed');
+    }
+  }, [wo, parts]);
+
   const loadRootFolder = useCallback(async (forceRefresh = false) => {
     if (forceRefresh) clearFolderCache(SHARED_FOLDER_ID);
 
@@ -261,6 +349,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
       setCurrentItems(cached);
       setFolderStack([ROOT_CRUMB]);
       setDriveStatus('loaded');
+      loadDeepFiles(cached).then(deep => { setAllDeepFiles(deep); runAiSuggestions(deep); });
       return;
     }
 
@@ -274,11 +363,12 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
       setCurrentItems(files);
       setFolderStack([ROOT_CRUMB]);
       setDriveStatus('loaded');
+      loadDeepFiles(files).then(deep => { setAllDeepFiles(deep); runAiSuggestions(deep); });
     } catch (e) {
       setDriveStatus('error');
       setDriveError(e instanceof Error ? e.message : 'Failed to connect to Drive');
     }
-  }, []);
+  }, [loadDeepFiles, runAiSuggestions]);
 
   const navigateInto = useCallback(async (folder: DriveFile) => {
     setSearch('');
@@ -367,24 +457,24 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
     return currentFiles.filter(f => f.name.toLowerCase().includes(q) || f.description?.toLowerCase().includes(q));
   }, [currentFiles, search]);
 
-  // Suggestions: scored from root-level files only (files, not folders)
-  const suggestions = useMemo(() => {
-    if (search.trim()) return [];
-    const sourceFiles = isLive
-      ? rootFiles.filter(f => mimeTypeLabel(f.mimeType) !== 'folder')
-      : offlineFiles;
-    return sourceFiles
+  // Offline fallback: keyword scoring from hub docs
+  const keywordSuggestions = useMemo(() => {
+    if (isLive) return [];
+    return offlineFiles
       .map(f => ({ file: f, score: scoreFile(f.name, wo) }))
       .filter(x => x.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, 5)
       .map(x => x.file);
-  }, [rootFiles, isLive, offlineFiles, wo, search]);
+  }, [isLive, offlineFiles, wo]);
+
+  // The suggestions shown: AI when live, keyword when offline
+  const displayedSuggestions = isLive ? aiSuggestions : keywordSuggestions;
 
   const recentHistory = useMemo(() => {
-    const sugIds = new Set(suggestions.map(f => f.id));
+    const sugIds = new Set(displayedSuggestions.map(f => f.id));
     return history.filter(h => !sugIds.has(h.fileId)).slice(0, 6);
-  }, [history, suggestions]);
+  }, [history, displayedSuggestions]);
 
   const isAtRoot = folderStack.length === 1;
 
@@ -478,20 +568,50 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
 
-          {/* Suggestions — only at root, no search active */}
-          {isAtRoot && suggestions.length > 0 && !search && (
-            <Section icon={<Sparkles className="w-3.5 h-3.5" />} label="Suggested for this work order" count={suggestions.length}>
-              <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
-                {suggestions.map(f => (
-                  <FileRow
-                    key={f.id}
-                    file={f}
-                    isAttached={attachedIds.has(f.id)}
-                    onAttach={handleAttach}
-                    onDetach={onDetach}
-                  />
-                ))}
-              </div>
+          {/* AI Suggestions — only at root, no search active */}
+          {isAtRoot && !search && (aiStatus !== 'unavailable' || keywordSuggestions.length > 0) && (
+            <Section
+              icon={<Bot className="w-3.5 h-3.5" />}
+              label={isLive ? 'AI suggestions' : 'Suggested for this work order'}
+              count={aiStatus === 'done' ? displayedSuggestions.length : undefined}
+              defaultOpen
+            >
+              {aiStatus === 'loading' ? (
+                <div className="flex items-center gap-2 py-4 px-2 text-xs text-gray-500">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+                  Gemini is analyzing {allDeepFiles.length} files…
+                </div>
+              ) : aiStatus === 'error' ? (
+                <div className="flex items-center gap-2 py-3 px-2 text-xs text-red-400">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {aiError ?? 'AI suggestion failed'}
+                  <button onClick={() => runAiSuggestions(allDeepFiles)} className="ml-auto text-gray-500 hover:text-white transition-colors">
+                    Retry
+                  </button>
+                </div>
+              ) : displayedSuggestions.length === 0 ? (
+                <p className="text-xs text-gray-600 px-2 py-3">No strong matches found for this work order.</p>
+              ) : (
+                <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
+                  {displayedSuggestions.map(f => (
+                    <FileRow
+                      key={f.id}
+                      file={f}
+                      isAttached={attachedIds.has(f.id)}
+                      onAttach={handleAttach}
+                      onDetach={onDetach}
+                    />
+                  ))}
+                  {isLive && aiStatus === 'done' && (
+                    <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-gray-600">
+                      <Bot className="w-3 h-3" /> Powered by Gemini · analyzed {allDeepFiles.length} files
+                      <button onClick={() => { setAiSuggestions([]); setAiStatus('idle'); runAiSuggestions(allDeepFiles); }} className="ml-auto hover:text-gray-400 transition-colors">
+                        <RefreshCw className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </Section>
           )}
 
@@ -517,7 +637,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
 
           {/* Recently used */}
           {isAtRoot && recentHistory.length > 0 && !search && (
-            <Section icon={<Clock className="w-3.5 h-3.5" />} label="Recently used" count={recentHistory.length} defaultOpen={suggestions.length === 0}>
+            <Section icon={<Clock className="w-3.5 h-3.5" />} label="Recently used" count={recentHistory.length} defaultOpen={displayedSuggestions.length === 0}>
               <div className="bg-gray-800/40 rounded-xl px-2 py-1 divide-y divide-gray-800/60">
                 {recentHistory.map(h => {
                   const asFile: DriveFile = { id: h.fileId, name: h.name, mimeType: h.mimeType, webViewLink: h.webViewLink };
@@ -541,7 +661,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
               icon={<FolderOpen className="w-3.5 h-3.5" />}
               label={search ? 'Search results' : currentCrumb.name}
               count={(filteredFolders.length + filteredFiles.length) || undefined}
-              defaultOpen={!isAtRoot || suggestions.length === 0}
+              defaultOpen={!isAtRoot || displayedSuggestions.length === 0}
             >
               {/* Breadcrumb */}
               {folderStack.length > 1 && (
@@ -603,7 +723,7 @@ export default function DriveLinkModal({ wo, attached, onAttach, onDetach, onClo
               icon={<FolderOpen className="w-3.5 h-3.5" />}
               label={search ? 'Search results' : 'All documents'}
               count={filteredFiles.length}
-              defaultOpen={suggestions.length === 0}
+              defaultOpen={displayedSuggestions.length === 0}
             >
               {filteredFiles.length === 0 ? (
                 <p className="text-xs text-gray-600 text-center py-6">No documents match your search.</p>

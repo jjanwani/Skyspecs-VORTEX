@@ -784,6 +784,7 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
       {showDriveModal && (
         <DriveLinkModal
           wo={wo}
+          parts={effectiveParts}
           attached={driveAttachments}
           onAttach={attachDriveFile}
           onDetach={detachDriveFile}
