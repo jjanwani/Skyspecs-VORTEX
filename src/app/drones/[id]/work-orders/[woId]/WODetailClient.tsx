@@ -16,13 +16,14 @@ import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
   Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy,
-  CheckCircle as CheckIcon, XCircle, HelpCircle, Search,
+  CheckCircle as CheckIcon, XCircle, HelpCircle, Search, FolderOpen, X,
 } from 'lucide-react';
 import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserInventory } from '@/lib/userDataStore';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
+import DriveLinkModal, { DriveAttachment, addToHistory } from '@/components/modals/DriveLinkModal';
 
 const STATUS_FLOW: WorkOrderStatus[] = ['open', 'in_progress', 'on_hold', 'completed'];
 const PRIORITY_OPTIONS = [
@@ -68,6 +69,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [newTaskAssignee, setNewTaskAssignee] = useState('');
   const [showAddTask, setShowAddTask] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
+  const [showDriveModal, setShowDriveModal] = useState(false);
+  const [driveAttachments, setDriveAttachments] = useState<DriveAttachment[]>([]);
   const [ready, setReady] = useState(!!(staticWo && staticDrone));
   const [notFound, setNotFound] = useState(false);
 
@@ -83,6 +86,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
       // Will be initialized from wo.parts after baseWo is set
     }
     setPartsLoaded(true);
+    const savedDriveFiles = localStorage.getItem(`workorder-drive-files-${woId}`);
+    if (savedDriveFiles) setDriveAttachments(JSON.parse(savedDriveFiles));
     const userInv = getUserInventory();
     if (userInv.length > 0) setAllInventory([...baseInventoryItems, ...userInv]);
     const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
@@ -187,6 +192,20 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
       localStorage.setItem(`drone-edits-${id}`, JSON.stringify(next));
       return next;
     });
+  };
+
+  const saveDriveAttachments = (updated: DriveAttachment[]) => {
+    setDriveAttachments(updated);
+    localStorage.setItem(`workorder-drive-files-${woId}`, JSON.stringify(updated));
+  };
+
+  const attachDriveFile = (file: DriveAttachment) => {
+    if (driveAttachments.some(a => a.fileId === file.fileId)) return;
+    saveDriveAttachments([...driveAttachments, file]);
+  };
+
+  const detachDriveFile = (fileId: string) => {
+    saveDriveAttachments(driveAttachments.filter(a => a.fileId !== fileId));
   };
 
   return (
@@ -674,20 +693,58 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-white mb-3">Resources</h3>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg text-xs">
-                  <FileText className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
-                  <span className="text-gray-400 flex-shrink-0">Drive:</span>
-                  <InlineEdit
-                    value={wo.googleDriveLink ?? ''}
-                    onSave={v => update('googleDriveLink', v || undefined)}
-                    displayClassName="text-blue-400 truncate flex-1"
-                    emptyLabel="Add Drive link"
-                    disabled={!can('edit_wo_notes')}
-                  />
-                  {wo.googleDriveLink && (
-                    <a href={wo.googleDriveLink} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                      <ExternalLink className="w-3 h-3 text-gray-500 hover:text-white transition-colors" />
-                    </a>
+
+                {/* Drive files section */}
+                <div className="p-2.5 bg-gray-800 rounded-lg text-xs space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-gray-400">
+                      <FileText className="w-3.5 h-3.5 text-blue-400" />
+                      Drive Files
+                      {driveAttachments.length > 0 && (
+                        <span className="text-blue-400 font-medium">{driveAttachments.length}</span>
+                      )}
+                    </span>
+                    {can('edit_wo_notes') && (
+                      <button
+                        onClick={() => setShowDriveModal(true)}
+                        className="flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        <FolderOpen className="w-3 h-3" />
+                        Browse Drive
+                      </button>
+                    )}
+                  </div>
+                  {driveAttachments.length > 0 ? (
+                    <div className="space-y-1 pt-0.5">
+                      {driveAttachments.map(att => (
+                        <div key={att.fileId} className="flex items-center gap-2 py-1 group">
+                          <FileText className="w-3 h-3 text-gray-500 flex-shrink-0" />
+                          <a
+                            href={att.webViewLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:text-blue-300 truncate flex-1 transition-colors"
+                          >
+                            {att.name}
+                          </a>
+                          {can('edit_wo_notes') && (
+                            <button
+                              onClick={() => detachDriveFile(att.fileId)}
+                              className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all flex-shrink-0"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-gray-600 text-xs">
+                      No documents attached —{' '}
+                      {can('edit_wo_notes')
+                        ? <button onClick={() => setShowDriveModal(true)} className="text-blue-500 hover:text-blue-400 transition-colors">browse Drive to add</button>
+                        : 'none added yet'}
+                    </p>
                   )}
                 </div>
                 <div className="flex items-center gap-2 p-2.5 bg-gray-800 rounded-lg text-xs">
@@ -721,6 +778,16 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
           sourceWO={wo}
           onDuplicate={() => setShowDuplicate(false)}
           onClose={() => setShowDuplicate(false)}
+        />
+      )}
+
+      {showDriveModal && (
+        <DriveLinkModal
+          wo={wo}
+          attached={driveAttachments}
+          onAttach={attachDriveFile}
+          onDetach={detachDriveFile}
+          onClose={() => setShowDriveModal(false)}
         />
       )}
     </div>

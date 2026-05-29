@@ -4,27 +4,11 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { Search, BookOpen, FileText, Video, Image, ExternalLink, FolderOpen, Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { HUB_DOCS } from '@/lib/data/hubDocs';
 
 type DocCategory = 'all' | 'build_guides' | 'diagrams' | 'regulatory' | 'maintenance' | 'rca_reports';
 
-const DOCS = [
-  { id: 'D-001', title: 'V2 Block 2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v2.3', lastUpdated: '2024-01-10', description: 'Complete build instructions for V2 Block 2 drone assembly. Includes corestack, gimbal, fuselage, and payload sections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-002', title: 'V2 HD Air G2 Build Guide', category: 'build_guides' as DocCategory, type: 'pdf', version: 'v1.2', lastUpdated: '2024-01-05', description: 'Build guide for the V2 HD Air G2 configuration with gimbal specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-003', title: 'Corestack Assembly Diagram', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.1', lastUpdated: '2023-12-20', description: 'Wiring diagram and component placement for corestack assembly. Includes Xavier, SSD, and coreboard layout.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-004', title: 'Gimbal Wiring Harness', category: 'diagrams' as DocCategory, type: 'image', version: 'v3.0', lastUpdated: '2024-01-08', description: 'Complete wiring harness diagram for gimbal assembly including camera, lidar, and motor connections.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-005', title: 'ERN-660 Coreboard Replacement', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-11-15', description: 'Engineering Release Notice for coreboard replacement procedure. Applies to all V2 drones.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-006', title: 'ERN-700 Hinge Replacement FR/FL', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v1.1', lastUpdated: '2023-12-01', description: 'Engineering Release Notice for front hinge assembly replacement. Required for V2 HD Air G2 units.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-007', title: 'ECN-199 NDAA Compliance Upgrade', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-12', description: 'NDAA compliance upgrade procedure for all deployed units. Field-applicable with standard tools.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-008', title: 'FAA Registration Process', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.3', lastUpdated: '2023-10-20', description: 'Step-by-step FAA registration procedure for new drone units entering service.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-009', title: 'ECT-52 (7075) Compliance Checklist', category: 'regulatory' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2023-09-15', description: 'Compliance checklist and verification steps for ECT-52 standard.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-010', title: 'Motor Troubleshooting Guide', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.2', lastUpdated: '2024-01-03', description: 'Diagnosis and replacement procedures for PM4315 and PM4310 motors. Includes ESC diagnostics.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-011', title: 'RCA Template - Crash Investigation', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.5', lastUpdated: '2023-12-10', description: 'Standard template for root cause analysis of crash incidents. Covers flight log analysis, hardware inspection, and corrective actions.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-012', title: 'RCA Report - FS-091 Motor Failure', category: 'rca_reports' as DocCategory, type: 'pdf', version: 'v1.0', lastUpdated: '2024-01-18', description: 'Root cause analysis for FS-091 crash. Motor 2 overcurrent event confirmed. ESC replaced.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-013', title: 'Payload System Assembly', category: 'build_guides' as DocCategory, type: 'video', version: 'v1.0', lastUpdated: '2023-11-28', description: 'Video walkthrough of payload board base and cover installation, including radio shield placement.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-014', title: 'TBS Backpack Firmware Update', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v2.0', lastUpdated: '2024-01-14', description: 'Step-by-step TBS backpack firmware update procedure. Required for all units prior to deployment.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-015', title: 'Fuselage Assembly - Bottom Plate', category: 'diagrams' as DocCategory, type: 'image', version: 'v2.0', lastUpdated: '2023-12-05', description: 'Diagram showing bottom plate assembly sequence, standoff positions, and torque specifications.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-  { id: 'D-016', title: 'Pre-Flight Checklist', category: 'maintenance' as DocCategory, type: 'pdf', version: 'v3.1', lastUpdated: '2024-01-15', description: 'Complete pre-flight inspection and verification checklist for all V2 drone variants.', driveLink: 'https://drive.google.com/drive/folders/skyspecs-builds' },
-];
+const DOCS = HUB_DOCS.map(d => ({ ...d, title: d.name }));
 
 const DEFAULT_FAVORITES = ['D-001', 'D-002', 'D-005', 'D-006', 'D-007', 'D-016'];
 

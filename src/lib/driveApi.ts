@@ -48,16 +48,39 @@ export function getDriveToken(): string | null {
 
 // ── OAuth2 token request ──────────────────────────────────────────────────────
 
+/** Ensures the GIS script is loaded before trying to call initTokenClient. */
+function loadGIS(): Promise<void> {
+  return new Promise(resolve => {
+    if (typeof window === 'undefined') return resolve();
+    // Already available
+    if ((window as Window & { google?: { accounts?: { oauth2?: unknown } } }).google?.accounts?.oauth2) return resolve();
+    // Already in the DOM, just wait for it
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true });
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    document.head.appendChild(script);
+  });
+}
+
 /**
  * Requests a Drive access token via GIS. Shows the Google consent popup if
  * this is the first time or the token has expired. Returns the token string.
  */
-export function requestDriveAccess(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') return reject(new Error('SSR'));
-    if (!CLIENT_ID) return reject(new Error('NEXT_PUBLIC_GOOGLE_CLIENT_ID not set'));
-    if (tokenValid()) return resolve(_accessToken!);
+export async function requestDriveAccess(): Promise<string> {
+  if (typeof window === 'undefined') throw new Error('SSR');
+  if (!CLIENT_ID) throw new Error('NEXT_PUBLIC_GOOGLE_CLIENT_ID not set');
+  if (tokenValid()) return _accessToken!;
 
+  await loadGIS();
+
+  return new Promise((resolve, reject) => {
     const google = (window as Window & { google?: { accounts: { oauth2: { initTokenClient: (cfg: object) => { requestAccessToken: () => void } } } } }).google;
     if (!google?.accounts?.oauth2) return reject(new Error('GIS not loaded'));
 
