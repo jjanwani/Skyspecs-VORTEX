@@ -63,6 +63,7 @@ function getCachedDriveFiles(): DriveFile[] | null {
 }
 
 function setCachedDriveFiles(files: DriveFile[]): void {
+  if (files.length === 0) return; // don't cache empty — may be a Shared Drive access issue
   try {
     sessionStorage.setItem(SESSION_CACHE_KEY, JSON.stringify({ files, fetchedAt: Date.now() }));
   } catch {}

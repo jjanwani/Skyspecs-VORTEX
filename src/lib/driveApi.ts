@@ -131,6 +131,7 @@ async function driveGet<T>(path: string, params: Record<string, string> = {}): P
 /**
  * List files in a Drive folder. Pass a real folder ID, not a full URL.
  * Returns up to 100 files sorted by name.
+ * includeItemsFromAllDrives + supportsAllDrives are required for Shared Drives.
  */
 export async function listFolder(folderId: string): Promise<DriveFile[]> {
   const resp = await driveGet<{ files: DriveFile[] }>('/files', {
@@ -138,6 +139,8 @@ export async function listFolder(folderId: string): Promise<DriveFile[]> {
     fields: `files(${FILE_FIELDS})`,
     orderBy: 'name',
     pageSize: '100',
+    includeItemsFromAllDrives: 'true',
+    supportsAllDrives: 'true',
   });
   return resp.files ?? [];
 }
@@ -146,13 +149,14 @@ export async function listFolder(folderId: string): Promise<DriveFile[]> {
  * Get metadata for a single file by its Drive file ID.
  */
 export async function getFile(fileId: string): Promise<DriveFile> {
-  return driveGet<DriveFile>(`/files/${fileId}`, { fields: FILE_FIELDS });
+  return driveGet<DriveFile>(`/files/${fileId}`, {
+    fields: FILE_FIELDS,
+    supportsAllDrives: 'true',
+  });
 }
 
 /**
- * Full-text search across the team's Drive.
- * `query` maps directly to Drive's `q` filter syntax, or you can pass a plain
- * string and it will be wrapped in a name contains search.
+ * Full-text search across the team's Drive, including Shared Drives.
  */
 export async function searchFiles(query: string, folderId?: string): Promise<DriveFile[]> {
   const nameFilter = `name contains '${query.replace(/'/g, "\\'")}'`;
@@ -164,6 +168,8 @@ export async function searchFiles(query: string, folderId?: string): Promise<Dri
     fields: `files(${FILE_FIELDS})`,
     orderBy: 'modifiedTime desc',
     pageSize: '20',
+    includeItemsFromAllDrives: 'true',
+    supportsAllDrives: 'true',
   });
   return resp.files ?? [];
 }
