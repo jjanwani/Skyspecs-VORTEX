@@ -154,6 +154,46 @@ export interface InventoryItem extends SFSyncMeta {
   purchaseLink?: string;
 }
 
+export interface SubsystemField {
+  id: string;
+  label: string;
+  type: 'dropdown' | 'number' | 'text';
+  options?: string[];   // only for 'dropdown' type
+}
+
+export interface SubsystemType {
+  id: string;
+  name: string;
+  icon: string;         // emoji or short label for display
+  fields: SubsystemField[];
+}
+
+export interface ConfigFieldChange {
+  fieldId: string;
+  fieldLabel: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface ConfigChangeEvent {
+  id: string;
+  timestamp: string;    // ISO
+  changedBy: string;
+  reason: string;
+  changes: ConfigFieldChange[];
+  notes?: string;
+}
+
+export interface Subsystem {
+  id: string;           // e.g. "GMB1-001"
+  typeId: string;       // e.g. "gimbal"
+  crossRef?: string;    // e.g. "SS-FS-GMB1-001"
+  droneId?: string;     // drone it's currently installed on
+  currentConfig: Record<string, string>;  // fieldId → current value
+  history: ConfigChangeEvent[];
+  notes?: string;
+}
+
 export interface KPIData {
   totalDrones: number;
   dronesDeployed: number;
