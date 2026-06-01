@@ -1,4 +1,4 @@
-import { SubsystemType, Subsystem } from '@/lib/types';
+import { SubsystemType, Subsystem, SubsetDefinition, SubsetAsset, SubsetHistoryEvent } from '@/lib/types';
 
 export const SUBSYSTEM_TYPES: SubsystemType[] = [
   {
@@ -611,3 +611,106 @@ export const SEED_GIMBALS: Subsystem[] = [
     ],
   },
 ];
+
+// ── Flexible subset / asset grid seed data ────────────────────────────────────
+
+export const DEFAULT_STATUS_OPTIONS: string[] = [
+  'No change', 'Redress', 'Replaced', 'New Hardware',
+  'PM4310', 'PM4315', '1v1 Board', '1v2 Board',
+  'Black Encoder', 'Green Encoder', 'Prefab Harness',
+];
+
+export const SEED_SUBSET_DEFS: SubsetDefinition[] = [
+  {
+    id: 'gimbal-redress',
+    name: 'Gimbal Redress',
+    createdAt: '2025-01-01T00:00:00Z',
+    parts: [
+      { id: 'motor1', label: 'Motor 1', type: 'status' },
+      { id: 'motor2', label: 'Motor 2', type: 'status' },
+      { id: 'motor3', label: 'Motor 3', type: 'status' },
+      { id: 'armBoard1', label: 'Arm Board 1', type: 'status' },
+      { id: 'armBoard2', label: 'Arm Board 2', type: 'status' },
+      { id: 'arm1', label: 'Arm 1', type: 'status' },
+      { id: 'arm2', label: 'Arm 2', type: 'status' },
+      { id: 'encoder1', label: 'Encoder 1', type: 'status' },
+      { id: 'encoder2', label: 'Encoder 2', type: 'status' },
+      { id: 'encoder3', label: 'Encoder 3', type: 'status' },
+      { id: 'pin6', label: '6-pin', type: 'status' },
+      { id: 'pin7', label: '7-pin', type: 'status' },
+      { id: 'bridgeHarness', label: 'Bridge Harness', type: 'status' },
+    ],
+  },
+  {
+    id: 'motor-cycles',
+    name: 'Motor Cycles',
+    createdAt: '2025-01-01T00:00:00Z',
+    parts: [
+      { id: 'm1ac', label: 'M1 AC', type: 'text' },
+      { id: 'm2ac', label: 'M2 AC', type: 'text' },
+      { id: 'm3ac', label: 'M3 AC', type: 'text' },
+    ],
+  },
+];
+
+export const SEED_SUBSET_ASSETS: SubsetAsset[] = SEED_GIMBALS.map(g => ({
+  id: g.id,
+  crossRef: g.crossRef,
+  notes: g.notes,
+}));
+
+// Cell values per subset → asset → part
+export const SEED_SUBSET_CELLS: Record<string, Record<string, Record<string, string>>> = {
+  'gimbal-redress': Object.fromEntries(
+    SEED_GIMBALS.map(g => [
+      g.id,
+      {
+        motor1: g.currentConfig.motor1 ?? '',
+        motor2: g.currentConfig.motor2 ?? '',
+        motor3: g.currentConfig.motor3 ?? '',
+        armBoard1: g.currentConfig.armBoard1 ?? '',
+        armBoard2: g.currentConfig.armBoard2 ?? '',
+        arm1: g.currentConfig.arm1 ?? '',
+        arm2: g.currentConfig.arm2 ?? '',
+        encoder1: g.currentConfig.encoder1 ?? '',
+        encoder2: g.currentConfig.encoder2 ?? '',
+        encoder3: g.currentConfig.encoder3 ?? '',
+        pin6: g.currentConfig.pin6 ?? '',
+        pin7: g.currentConfig.pin7 ?? '',
+        bridgeHarness: g.currentConfig.bridgeHarness ?? '',
+      },
+    ])
+  ),
+  'motor-cycles': Object.fromEntries(
+    SEED_GIMBALS.map(g => [
+      g.id,
+      {
+        m1ac: g.currentConfig.m1ac ?? '',
+        m2ac: g.currentConfig.m2ac ?? '',
+        m3ac: g.currentConfig.m3ac ?? '',
+      },
+    ])
+  ),
+};
+
+// History per asset, migrated from old model
+export const SEED_SUBSET_HISTORY: Record<string, SubsetHistoryEvent[]> = Object.fromEntries(
+  SEED_GIMBALS.map(g => [
+    g.id,
+    g.history.map(evt => ({
+      id: evt.id,
+      timestamp: evt.timestamp,
+      changedBy: evt.changedBy,
+      reason: evt.reason,
+      notes: evt.notes,
+      subsetId: 'gimbal-redress',
+      subsetName: 'Gimbal Redress',
+      changes: evt.changes.map(ch => ({
+        partId: ch.fieldId,
+        partLabel: ch.fieldLabel,
+        oldValue: ch.oldValue,
+        newValue: ch.newValue,
+      })),
+    })),
+  ])
+);

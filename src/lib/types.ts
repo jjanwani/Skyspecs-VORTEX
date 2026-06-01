@@ -194,6 +194,45 @@ export interface Subsystem {
   notes?: string;
 }
 
+// ── Flexible subset / asset grid ─────────────────────────────────────────────
+
+export interface SubsetPart {
+  id: string;
+  label: string;
+  type: 'status' | 'text';
+}
+
+export interface SubsetDefinition {
+  id: string;
+  name: string;
+  parts: SubsetPart[];
+  createdAt: string;
+}
+
+export interface SubsetAsset {
+  id: string;
+  crossRef?: string;
+  notes?: string;
+}
+
+export interface SubsetCellChange {
+  partId: string;
+  partLabel: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface SubsetHistoryEvent {
+  id: string;
+  timestamp: string;
+  changedBy: string;
+  reason?: string;
+  subsetId: string;
+  subsetName: string;
+  changes: SubsetCellChange[];
+  notes?: string;
+}
+
 export interface KPIData {
   totalDrones: number;
   dronesDeployed: number;
