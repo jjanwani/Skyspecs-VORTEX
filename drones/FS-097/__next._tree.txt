@@ -1,3 +1,3 @@
-:HL["/skyspecs-work_order_hub/_next/static/chunks/04eaytt3yp22j.css","style"]
+:HL["/skyspecs-work_order_hub/_next/static/chunks/0d-9yi.nbaov_.css","style"]
 :HL["/skyspecs-work_order_hub/_next/static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"drones","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"FS-097","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"RbQ-5FtT_-Rto09lL_Bfo"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"drones","param":null,"prefetchHints":0,"slots":{"children":{"name":"id","param":{"type":"d","key":"FS-097","siblings":null},"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}}}},"staleTime":300,"buildId":"gR6-oQhqYsyAYJ3wZLxEV"}
