@@ -21,12 +21,11 @@ import {
 // ── localStorage keys ─────────────────────────────────────────────────────────
 
 const LS = {
-  subsets:       'vortex-v2-subsets',
-  assets:        'vortex-v2-assets',
-  statusOptions: 'vortex-v2-status-options',
-  cells:         (id: string) => `vortex-v2-cells-${id}`,
-  history:       (id: string) => `vortex-v2-history-${id}`,
-  visible:       (id: string) => `vortex-v2-visible-${id}`,
+  subsets: 'vortex-v2-subsets',
+  assets:  'vortex-v2-assets',
+  cells:   (id: string) => `vortex-v2-cells-${id}`,
+  history: (id: string) => `vortex-v2-history-${id}`,
+  visible: (id: string) => `vortex-v2-visible-${id}`,
 };
 
 function lsGet<T>(key: string, fallback: T): T {
@@ -392,13 +391,9 @@ export default function SubsystemsPage() {
   // Core data
   const [subsets, setSubsets] = useState<SubsetDefinition[]>([]);
   const [assets, setAssets] = useState<SubsetAsset[]>([]);
-  // cells[subsetId][assetId][partId] = value
   const [cells, setCells] = useState<Record<string, Record<string, Record<string, string>>>>({});
-  // history[assetId] = events[]
   const [assetHistory, setAssetHistory] = useState<Record<string, SubsetHistoryEvent[]>>({});
-  // visible[subsetId] = Set of visible asset IDs (empty Set = all visible)
   const [visible, setVisible] = useState<Record<string, Set<string>>>({});
-  const [statusOptions, setStatusOptions] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   // UI state
@@ -411,6 +406,9 @@ export default function SubsystemsPage() {
   const [showStatusOptions, setShowStatusOptions] = useState(false);
   const [addingPart, setAddingPart] = useState(false);
   const [newPartLabel, setNewPartLabel] = useState('');
+  // Inline note editing
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteValue, setEditingNoteValue] = useState('');
 
   // Load everything on mount
   useEffect(() => {
@@ -421,9 +419,6 @@ export default function SubsystemsPage() {
     const storedAssets = lsGet<SubsetAsset[] | null>(LS.assets, null);
     const loadedAssets = storedAssets ?? SEED_SUBSET_ASSETS;
     if (!storedAssets) lsSet(LS.assets, SEED_SUBSET_ASSETS);
-
-    const loadedStatusOptions = lsGet<string[] | null>(LS.statusOptions, null) ?? DEFAULT_STATUS_OPTIONS;
-    if (!lsGet<null>(LS.statusOptions, null)) lsSet(LS.statusOptions, DEFAULT_STATUS_OPTIONS);
 
     // Load cells per subset
     const loadedCells: Record<string, Record<string, Record<string, string>>> = {};
@@ -453,7 +448,6 @@ export default function SubsystemsPage() {
     setCells(loadedCells);
     setAssetHistory(loadedHistory);
     setVisible(loadedVisible);
-    setStatusOptions(loadedStatusOptions);
     setActiveSubsetId(loadedSubsets[0]?.id ?? '');
     setLoaded(true);
   }, []);
@@ -587,9 +581,21 @@ export default function SubsystemsPage() {
   }, [activeSubsetId, assets]);
 
   const saveStatusOptions = useCallback((opts: string[]) => {
-    setStatusOptions(opts);
-    lsSet(LS.statusOptions, opts);
+    setSubsets(prev => {
+      const next = prev.map(s => s.id === activeSubsetId ? { ...s, statusOptions: opts } : s);
+      lsSet(LS.subsets, next);
+      return next;
+    });
     setShowStatusOptions(false);
+  }, [activeSubsetId]);
+
+  const saveNote = useCallback((assetId: string, note: string) => {
+    setAssets(prev => {
+      const next = prev.map(a => a.id === assetId ? { ...a, notes: note || undefined } : a);
+      lsSet(LS.assets, next);
+      return next;
+    });
+    setEditingNoteId(null);
   }, []);
 
   if (!loaded) {
@@ -793,10 +799,31 @@ export default function SubsystemsPage() {
                     ))}
 
                     {/* Notes */}
-                    <td className="px-3 py-2.5 max-w-[160px]">
-                      <span className={cn('text-xs', asset.notes?.toLowerCase().includes('crash') ? 'text-red-400' : 'text-gray-500')}>
-                        {asset.notes ?? '—'}
-                      </span>
+                    <td className="px-3 py-2.5 max-w-[200px]">
+                      {editingNoteId === asset.id ? (
+                        <input
+                          autoFocus
+                          type="text"
+                          value={editingNoteValue}
+                          onChange={e => setEditingNoteValue(e.target.value)}
+                          onBlur={() => saveNote(asset.id, editingNoteValue)}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') saveNote(asset.id, editingNoteValue);
+                            if (e.key === 'Escape') setEditingNoteId(null);
+                          }}
+                          className="w-full bg-gray-800 border border-blue-500/60 rounded px-2 py-0.5 text-xs text-white focus:outline-none"
+                        />
+                      ) : (
+                        <button
+                          onClick={() => { setEditingNoteId(asset.id); setEditingNoteValue(asset.notes ?? ''); }}
+                          className="text-left w-full hover:bg-gray-700/40 rounded px-1 py-0.5 transition-colors"
+                          title="Click to edit note"
+                        >
+                          <span className={cn('text-xs', asset.notes?.toLowerCase().includes('crash') ? 'text-red-400' : asset.notes ? 'text-gray-400' : 'text-gray-600')}>
+                            {asset.notes ?? '—'}
+                          </span>
+                        </button>
+                      )}
                     </td>
 
                     {/* History toggle — sticky right */}
@@ -842,7 +869,7 @@ export default function SubsystemsPage() {
           assetId={editingCell.assetId}
           part={editingPart}
           currentValue={cells[activeSubsetId]?.[editingCell.assetId]?.[editingCell.partId] ?? ''}
-          statusOptions={statusOptions}
+          statusOptions={activeSubset?.statusOptions ?? DEFAULT_STATUS_OPTIONS}
           currentUser={user?.name ?? ''}
           onSave={(val, reason, by) => saveCell(editingCell.assetId, editingCell.partId, val, reason, by)}
           onClose={() => setEditingCell(null)}
@@ -850,7 +877,7 @@ export default function SubsystemsPage() {
       )}
       {showAddSubset && <AddSubsetModal onAdd={addSubset} onClose={() => setShowAddSubset(false)} />}
       {showStatusOptions && (
-        <StatusOptionsModal options={statusOptions} onSave={saveStatusOptions} onClose={() => setShowStatusOptions(false)} />
+        <StatusOptionsModal options={activeSubset?.statusOptions ?? DEFAULT_STATUS_OPTIONS} onSave={saveStatusOptions} onClose={() => setShowStatusOptions(false)} />
       )}
     </div>
   );
