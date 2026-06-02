@@ -206,6 +206,7 @@ export interface SubsetDefinition {
   id: string;
   name: string;
   parts: SubsetPart[];
+  statusOptions?: string[];   // per-subset; falls back to DEFAULT_STATUS_OPTIONS
   createdAt: string;
 }
 
