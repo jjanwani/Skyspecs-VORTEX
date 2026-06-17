@@ -24,7 +24,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_BASE_PATH: /skyspecs-work_order_hub
+          NEXT_PUBLIC_BASE_PATH: /Skyspecs-VORTEX
           NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_CLIENT_ID }}
 
       - name: Deploy to GitHub Pages
