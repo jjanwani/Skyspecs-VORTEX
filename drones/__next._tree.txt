@@ -1,3 +1,3 @@
-:HL["/Skyspecs-VORTEX/_next/static/chunks/059w9q5xd7q~n.css","style"]
+:HL["/Skyspecs-VORTEX/_next/static/chunks/0k-ttoaawkeob.css","style"]
 :HL["/Skyspecs-VORTEX/_next/static/media/83afe278b6a6bb3c-s.p.0q-301v4kxxnr.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"drones","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"jgw07u44yNsMw9RdC__u-"}
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"drones","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"4hU_Ayn5wsm417Q0nPtXr"}
