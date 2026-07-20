@@ -1,4 +1,4 @@
-import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus } from '@/lib/types';
+import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 
 export function getUserDrones(): Drone[] {
   if (typeof window === 'undefined') return [];
@@ -20,6 +20,20 @@ export function getUserInventory(): InventoryItem[] {
 }
 export function saveUserInventory(items: InventoryItem[]) {
   localStorage.setItem('user-inventory', JSON.stringify(items));
+}
+export function getUserSubsystems(): Subsystem[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('user-subsystems') || '[]'); } catch { return []; }
+}
+export function saveUserSubsystems(items: Subsystem[]) {
+  localStorage.setItem('user-subsystems', JSON.stringify(items));
+}
+export function getUserECNs(): EngineeringChangeNotice[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('user-ecns') || '[]'); } catch { return []; }
+}
+export function saveUserECNs(items: EngineeringChangeNotice[]) {
+  localStorage.setItem('user-ecns', JSON.stringify(items));
 }
 
 // ── Phase time tracking ──────────────────────────────────────────────────────

@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, ChevronRight, ClipboardList, Sparkles } from 'lucide-react';
-import { WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderPriority } from '@/lib/types';
+import { WorkOrder, WorkOrderType, WorkOrderStatus, WorkOrderPriority, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 import { getUserWorkOrders, saveUserWorkOrders } from '@/lib/userDataStore';
 import { getWorkOrderTypeLabel } from '@/lib/utils';
+import { getSubsystemTypeName } from '@/lib/subsystemTree';
 
 interface Props {
   existingWorkOrders: WorkOrder[];
   drones: { id: string; name: string }[];
+  subsystems: Subsystem[];
+  ecns: EngineeringChangeNotice[];
   onAdd: (wo: WorkOrder) => void;
   onClose: () => void;
 }
@@ -20,6 +23,7 @@ function blankForm() {
     title: '', droneId: '', droneName: '', type: 'maintenance' as WorkOrderType,
     priority: 'medium' as WorkOrderPriority, status: 'open' as WorkOrderStatus,
     assigned: '', estimatedHours: 1, description: '', ernReference: '', notes: '',
+    subsystemId: '', ecnId: '',
     parts: [] as WorkOrder['parts'],
   };
 }
@@ -37,11 +41,13 @@ function templateToForm(wo: WorkOrder) {
     description: wo.description,
     ernReference: wo.ernReference ?? '',
     notes: wo.notes ?? '',
+    subsystemId: '',
+    ecnId: wo.ecnId ?? '',
     parts: wo.parts ? wo.parts.map(p => ({ ...p })) : [],
   };
 }
 
-export default function AddWorkOrderModal({ existingWorkOrders, drones, onAdd, onClose }: Props) {
+export default function AddWorkOrderModal({ existingWorkOrders, drones, subsystems, ecns, onAdd, onClose }: Props) {
   const [step, setStep] = useState<Step>('pick');
   const [form, setForm] = useState(blankForm());
   const [templateLabel, setTemplateLabel] = useState<string | null>(null);
@@ -94,6 +100,8 @@ export default function AddWorkOrderModal({ existingWorkOrders, drones, onAdd, o
       previousOccurrences: 0,
       completionHistory: [],
       ernReference: form.ernReference.trim() || undefined,
+      subsystemId: form.subsystemId || undefined,
+      ecnId: form.ecnId || undefined,
       notes: form.notes.trim() || undefined,
       parts: form.parts && form.parts.length > 0 ? form.parts : undefined,
       source: 'platform',
@@ -227,6 +235,43 @@ export default function AddWorkOrderModal({ existingWorkOrders, drones, onAdd, o
               >
                 <option value="">— Unassigned —</option>
                 {drones.map(d => <option key={d.id} value={d.id}>{d.name} ({d.id})</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Subsystem <span className="text-gray-600 font-normal">(optional)</span></label>
+              <select
+                value={form.subsystemId}
+                onChange={e => set('subsystemId', e.target.value)}
+                disabled={!form.droneId}
+                className={`${selectCls} disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                <option value="">{form.droneId ? '— None —' : 'Select a drone first'}</option>
+                {subsystems.filter(s => s.droneId === form.droneId).map(s => (
+                  <option key={s.id} value={s.id}>{getSubsystemTypeName(s.typeId)} ({s.id})</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">ECN <span className="text-gray-600 font-normal">(optional)</span></label>
+              <select
+                value={form.ecnId}
+                onChange={e => {
+                  const ecnId = e.target.value;
+                  const ecn = ecns.find(x => x.id === ecnId);
+                  setForm(prev => ({
+                    ...prev,
+                    ecnId,
+                    ernReference: ecn ? ecn.id : prev.ernReference,
+                    description: ecn && !prev.description ? ecn.description : prev.description,
+                    parts: ecn?.partsAffected && (prev.parts ?? []).length === 0 ? ecn.partsAffected.map(p => ({ ...p })) : prev.parts,
+                  }));
+                }}
+                className={selectCls}
+              >
+                <option value="">— None —</option>
+                {ecns.map(e => <option key={e.id} value={e.id}>{e.id} — {e.title}</option>)}
               </select>
             </div>
 

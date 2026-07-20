@@ -72,6 +72,8 @@ export interface WorkOrder extends SFSyncMeta {
   actualHours?: number;
   previousOccurrences: number;
   ernReference?: string;
+  subsystemId?: string;   // Subsystem instance (on this drone) this work order applies to
+  ecnId?: string;         // EngineeringChangeNotice this work order was generated from / references
   slackThread?: string;
   googleDriveLink?: string;
   notes?: string;
@@ -166,6 +168,7 @@ export interface SubsystemType {
   name: string;
   icon: string;         // emoji or short label for display
   fields: SubsystemField[];
+  parentTypeId?: string; // parent SubsystemType in the catalog taxonomy (undefined = sits directly under the drone)
 }
 
 export interface ConfigFieldChange {
@@ -189,9 +192,33 @@ export interface Subsystem {
   typeId: string;       // e.g. "gimbal"
   crossRef?: string;    // e.g. "SS-FS-GMB1-001"
   droneId?: string;     // drone it's currently installed on
+  parentId?: string;    // id of the parent Subsystem instance on the same drone (undefined = top-level, directly under the drone)
+  kind?: 'subsystem' | 'part';  // leaf nodes (screws, 3D-printed brackets, etc.) are 'part'; default 'subsystem'
+  inventoryItemId?: string;     // for 'part' nodes, optional link to an InventoryItem catalog entry
+  quantity?: number;            // for 'part' nodes, quantity installed
+  serialNumber?: string;        // for 'part' nodes, serialized part tracking
   currentConfig: Record<string, string>;  // fieldId → current value
   history: ConfigChangeEvent[];
   notes?: string;
+}
+
+// ── Engineering Change Notices ───────────────────────────────────────────────
+// Status/approval workflow lives in a separate system; this only carries what's
+// needed to link an ECN to affected subsystem types and generate work orders.
+
+export type ECNActionType = 'add' | 'remove' | 'replace';
+
+export interface EngineeringChangeNotice {
+  id: string;            // e.g. "ECN-199"
+  title: string;
+  description: string;
+  actionType: ECNActionType;
+  affectedSubsystemTypeIds: string[];  // SubsystemType ids this ECN targets
+  partsAffected?: { name: string; qty: number; status: 'available' | 'on_order' | 'missing' }[];
+  createdBy: string;
+  createdAt: string;
+  notes?: string;
+  externalStatus?: string;  // passthrough for a status value owned by an external ECN workflow system, if any
 }
 
 // ── Flexible subset / asset grid ─────────────────────────────────────────────

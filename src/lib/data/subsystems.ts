@@ -1,10 +1,57 @@
 import { SubsystemType, Subsystem, SubsetDefinition, SubsetAsset, SubsetHistoryEvent } from '@/lib/types';
 
+// ── Subsystem taxonomy (BOM template hierarchy) ───────────────────────────────
+// parentTypeId chains each type up toward the drone itself (undefined = sits
+// directly under the drone). This is the reusable catalog; the actual tree
+// installed on a given drone is built from Subsystem instances (below), which
+// can differ drone to drone even when they share the same taxonomy.
+
 export const SUBSYSTEM_TYPES: SubsystemType[] = [
+  {
+    id: 'airframe',
+    name: 'Airframe',
+    icon: '🛩',
+    fields: [],
+  },
+  {
+    id: 'corestack',
+    name: 'Corestack',
+    icon: '🖥',
+    parentTypeId: 'airframe',
+    fields: [],
+  },
+  {
+    id: 'fuselage',
+    name: 'Fuselage',
+    icon: '🔲',
+    parentTypeId: 'airframe',
+    fields: [],
+  },
+  {
+    id: 'payload_bay',
+    name: 'Payload Bay',
+    icon: '📦',
+    parentTypeId: 'airframe',
+    fields: [],
+  },
+  {
+    id: 'mounting_hardware',
+    name: 'Mounting Hardware',
+    icon: '🔩',
+    parentTypeId: 'gimbal',
+    fields: [],
+  },
+  {
+    id: 'custom',
+    name: 'Custom Part',
+    icon: '🔧',
+    fields: [],
+  },
   {
     id: 'gimbal',
     name: 'Gimbals',
     icon: '⚙',
+    parentTypeId: 'payload_bay',
     fields: [
       {
         id: 'motor1', label: 'Motor 1', type: 'dropdown',
@@ -70,6 +117,8 @@ export const SEED_GIMBALS: Subsystem[] = [
     id: 'GMB1-001',
     typeId: 'gimbal',
     crossRef: 'SS-FS-GMB1-001',
+    droneId: 'FS-008',
+    parentId: 'SYS-FS-008-PAYLOAD',
     currentConfig: {
       motor1: 'PM4310', motor2: 'PM4310', motor3: 'PM4310',
       armBoard1: '1v2 Board', armBoard2: '1v2 Board',
@@ -112,6 +161,8 @@ export const SEED_GIMBALS: Subsystem[] = [
     id: 'GMB1-002',
     typeId: 'gimbal',
     crossRef: 'SS-FS-GMB1-002',
+    droneId: 'FS-013',
+    parentId: 'SYS-FS-013-PAYLOAD',
     currentConfig: {
       motor1: 'PM4315', motor2: 'PM4310', motor3: 'PM4315',
       armBoard1: '1v2 Board', armBoard2: '1v2 Board',
@@ -609,6 +660,52 @@ export const SEED_GIMBALS: Subsystem[] = [
         ],
       },
     ],
+  },
+];
+
+// ── Per-drone Bill of Materials tree instances ────────────────────────────────
+// Top-level and leaf nodes for a couple of drones, demonstrating that the tree
+// installed on a given drone (Drone -> Airframe -> ... -> Part) can differ
+// drone to drone. Gimbal instances (GMB1-001, GMB1-002 above) plug into this
+// tree via their own droneId/parentId.
+
+export const SEED_ASSET_SUBSYSTEMS: Subsystem[] = [
+  // FS-008
+  {
+    id: 'SYS-FS-008-AIRFRAME', typeId: 'airframe', droneId: 'FS-008',
+    currentConfig: {}, history: [],
+  },
+  {
+    id: 'SYS-FS-008-CORESTACK', typeId: 'corestack', droneId: 'FS-008', parentId: 'SYS-FS-008-AIRFRAME',
+    currentConfig: {}, history: [], notes: 'Core board replaced per ECN-660',
+  },
+  {
+    id: 'SYS-FS-008-FUSELAGE', typeId: 'fuselage', droneId: 'FS-008', parentId: 'SYS-FS-008-AIRFRAME',
+    currentConfig: {}, history: [],
+  },
+  {
+    id: 'SYS-FS-008-PAYLOAD', typeId: 'payload_bay', droneId: 'FS-008', parentId: 'SYS-FS-008-AIRFRAME',
+    currentConfig: {}, history: [],
+  },
+  // GMB1-001 (in SEED_GIMBALS above) is installed here as parentId: 'SYS-FS-008-PAYLOAD'
+  {
+    id: 'SYS-FS-008-GMB1-SCREWS', typeId: 'mounting_hardware', droneId: 'FS-008', parentId: 'GMB1-001',
+    kind: 'part', quantity: 8, currentConfig: {}, history: [], notes: 'M3x10 mounting screw set',
+  },
+
+  // FS-013
+  {
+    id: 'SYS-FS-013-AIRFRAME', typeId: 'airframe', droneId: 'FS-013',
+    currentConfig: {}, history: [],
+  },
+  {
+    id: 'SYS-FS-013-PAYLOAD', typeId: 'payload_bay', droneId: 'FS-013', parentId: 'SYS-FS-013-AIRFRAME',
+    currentConfig: {}, history: [],
+  },
+  // GMB1-002 (in SEED_GIMBALS above) is installed here as parentId: 'SYS-FS-013-PAYLOAD'
+  {
+    id: 'SYS-FS-013-GMB1-SCREWS', typeId: 'mounting_hardware', droneId: 'FS-013', parentId: 'GMB1-002',
+    kind: 'part', quantity: 8, currentConfig: {}, history: [], notes: 'M3x10 mounting screw set',
   },
 ];
 

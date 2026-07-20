@@ -5,6 +5,9 @@ import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
+import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
+import { ecns as baseECNs } from '@/lib/data/ecns';
+import { getSubsystemPath, getSubsystemTypeName } from '@/lib/subsystemTree';
 import Link from 'next/link';
 import {
   getDroneStatusColor, getDroneStatusLabel,
@@ -16,12 +19,12 @@ import {
   ArrowLeft, Clock, User, ExternalLink, CheckCircle2,
   History, Package, MessageSquare, FileText, ChevronRight, AlertCircle,
   Plus, Circle, CheckCircle, Loader2, Trash2, ListChecks, ClipboardList, Copy,
-  CheckCircle as CheckIcon, XCircle, HelpCircle, Search, FolderOpen, X,
+  CheckCircle as CheckIcon, XCircle, HelpCircle, Search, FolderOpen, X, FileWarning,
 } from 'lucide-react';
-import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus } from '@/lib/types';
+import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserInventory } from '@/lib/userDataStore';
+import { getUserInventory, getUserSubsystems, getUserECNs } from '@/lib/userDataStore';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 import DriveLinkModal, { DriveAttachment, addToHistory } from '@/components/modals/DriveLinkModal';
 
@@ -73,6 +76,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [driveAttachments, setDriveAttachments] = useState<DriveAttachment[]>([]);
   const [ready, setReady] = useState(!!(staticWo && staticDrone));
   const [notFound, setNotFound] = useState(false);
+  const [allSubsystems, setAllSubsystems] = useState<Subsystem[]>([...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS]);
+  const [allECNs, setAllECNs] = useState<EngineeringChangeNotice[]>(baseECNs);
 
   useEffect(() => {
     const saved = localStorage.getItem(`workorder-edits-${woId}`);
@@ -90,6 +95,8 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     if (savedDriveFiles) setDriveAttachments(JSON.parse(savedDriveFiles));
     const userInv = getUserInventory();
     if (userInv.length > 0) setAllInventory([...baseInventoryItems, ...userInv]);
+    setAllSubsystems([...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...getUserSubsystems()]);
+    setAllECNs([...baseECNs, ...getUserECNs()]);
     const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (!staticWo) {
@@ -172,6 +179,9 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   );
 
   const wo: WorkOrder = { ...baseWo, ...edits };
+  const droneSubsystems = allSubsystems.filter(s => s.droneId === id);
+  const subsystemPath = wo.subsystemId ? getSubsystemPath(wo.subsystemId, droneSubsystems) : [];
+  const linkedECN = wo.ecnId ? allECNs.find(e => e.id === wo.ecnId) : undefined;
 
   // Initialize parts from wo.parts on first load if no saved parts
   const effectiveParts: WOPart[] = partsLoaded && parts.length === 0 && !localStorage.getItem(`workorder-parts-full-${woId}`)
@@ -220,6 +230,12 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
             </Link>
             <ChevronRight className="w-3 h-3" />
             <Link href={`/drones/${drone.id}`} className="hover:text-white transition-colors">{drone.name}</Link>
+            {subsystemPath.map(node => (
+              <span key={node.id} className="flex items-center gap-2">
+                <ChevronRight className="w-3 h-3" />
+                <span className="text-gray-400">{getSubsystemTypeName(node.typeId)}</span>
+              </span>
+            ))}
             <ChevronRight className="w-3 h-3" />
             <span className="text-gray-300">{wo.id}</span>
           </div>
@@ -657,6 +673,18 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
                 </div>
               )}
             </div>
+
+            {linkedECN && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <FileWarning className="w-4 h-4 text-amber-400" /> ECN
+                </h3>
+                <Link href={`/ecns/${linkedECN.id}`} className="block p-3 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors group">
+                  <p className="text-xs text-gray-500 font-mono mb-1">{linkedECN.id}</p>
+                  <p className="text-xs font-medium text-white group-hover:text-blue-400 transition-colors">{linkedECN.title}</p>
+                </Link>
+              </div>
+            )}
 
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
               <h3 className="text-sm font-semibold text-white mb-3">Details</h3>

@@ -4,6 +4,9 @@ import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
+import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
+import { ecns } from '@/lib/data/ecns';
+import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
 import Link from 'next/link';
 import {
   getDroneStatusColor, getDroneStatusLabel,
@@ -14,16 +17,19 @@ import {
 import {
   Plane, ArrowLeft, Clock, MapPin,
   User, AlertTriangle, ClipboardList, ExternalLink,
-  CheckCircle2, XCircle, HelpCircle,
+  CheckCircle2, XCircle, HelpCircle, Package, Plus,
 } from 'lucide-react';
-import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder } from '@/lib/types';
+import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder, Subsystem } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   recordPhaseTransition, getDronePhaseHistory,
   getDroneReturns, saveDroneReturns,
+  getUserSubsystems, getUserInventory,
 } from '@/lib/userDataStore';
 import CycleLogModal from '@/components/modals/CycleLogModal';
+import SubsystemTree from '@/components/SubsystemTree';
+import AddSubsystemModal from '@/components/modals/AddSubsystemModal';
 
 const STATUS_OPTIONS = [
   { value: 'deployed', label: 'Deployed' },
@@ -52,6 +58,9 @@ export default function DroneDetailClient({ id }: { id: string }) {
   const [notFound, setNotFound] = useState(false);
   const [pendingCycle, setPendingCycle] = useState<PhaseEntry[] | null>(null);
   const [healthRefresh, setHealthRefresh] = useState(0);
+  const [userSubsystems, setUserSubsystems] = useState<Subsystem[]>([]);
+  const [userInventory, setUserInventory] = useState<typeof baseInventoryItems>([]);
+  const [addSubsystemParentId, setAddSubsystemParentId] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
     const saved = localStorage.getItem(`drone-edits-${id}`);
@@ -64,6 +73,8 @@ export default function DroneDetailClient({ id }: { id: string }) {
     }
     const storedWOs = JSON.parse(localStorage.getItem('user-workorders') || '[]');
     setUserWOs(storedWOs);
+    setUserSubsystems(getUserSubsystems());
+    setUserInventory(getUserInventory());
     setReady(true);
   }, [id]);
 
@@ -103,6 +114,15 @@ export default function DroneDetailClient({ id }: { id: string }) {
   const allWOs = [...workOrders, ...userWOs];
   const droneWOs = allWOs.filter(w => w.droneId === drone.id);
   const openWOs = droneWOs.filter(w => w.status !== 'completed');
+
+  const allSubsystems = [...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...userSubsystems];
+  const droneSubsystems = allSubsystems.filter(s => s.droneId === drone.id);
+  const allInventory = [...baseInventoryItems, ...userInventory];
+
+  const addSubsystemNode = (node: Subsystem) => {
+    setUserSubsystems(prev => [...prev, node]);
+    setAddSubsystemParentId(undefined);
+  };
 
   return (
     <div>
@@ -310,6 +330,35 @@ export default function DroneDetailClient({ id }: { id: string }) {
             )}
           </div>
         </div>
+        {/* Bill of Materials / Subsystem tree */}
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+              <Package className="w-4 h-4 text-blue-400" />
+              Bill of Materials
+              {droneSubsystems.length > 0 && (
+                <span className="text-xs text-gray-500 font-normal">{droneSubsystems.length} node{droneSubsystems.length !== 1 ? 's' : ''}</span>
+              )}
+            </h2>
+            {can('edit_drone_technical') && droneSubsystems.length > 0 && (
+              <button
+                onClick={() => setAddSubsystemParentId(null)}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-700 hover:border-gray-500 rounded-lg text-xs text-gray-400 hover:text-white transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" /> Add subsystem
+              </button>
+            )}
+          </div>
+          <SubsystemTree
+            droneId={drone.id}
+            nodes={droneSubsystems}
+            workOrders={droneWOs}
+            ecns={ecns}
+            canManage={can('edit_drone_technical')}
+            onAddNode={parentId => setAddSubsystemParentId(parentId)}
+          />
+        </div>
+
         {/* Drone Health Panel */}
         <DroneHealthPanel
           droneId={id}
@@ -332,6 +381,17 @@ export default function DroneDetailClient({ id }: { id: string }) {
             phases={pendingCycle}
             onLog={() => { setHealthRefresh(r => r + 1); setPendingCycle(null); }}
             onDiscard={() => setPendingCycle(null)}
+          />
+        )}
+
+        {addSubsystemParentId !== undefined && (
+          <AddSubsystemModal
+            droneId={drone.id}
+            existingNodes={droneSubsystems}
+            inventoryItems={allInventory}
+            initialParentId={addSubsystemParentId}
+            onAdd={addSubsystemNode}
+            onClose={() => setAddSubsystemParentId(undefined)}
           />
         )}
 

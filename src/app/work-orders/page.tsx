@@ -4,7 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import { workOrders as baseWorkOrders } from '@/lib/data/workorders';
 import { drones as baseDrones } from '@/lib/data/drones';
-import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/lib/types';
+import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
+import { ecns as baseECNs } from '@/lib/data/ecns';
+import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 import {
   getWorkOrderStatusColor, getWorkOrderStatusLabel,
   getWorkOrderTypeColor, getWorkOrderTypeLabel,
@@ -14,7 +16,7 @@ import Link from 'next/link';
 import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus, Copy } from 'lucide-react';
 import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
-import { getUserWorkOrders, getUserDrones } from '@/lib/userDataStore';
+import { getUserWorkOrders, getUserDrones, getUserSubsystems, getUserECNs } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function WorkOrdersPage() {
@@ -25,13 +27,20 @@ export default function WorkOrdersPage() {
   const [priorityFilter, setPriorityFilter] = useState<WorkOrderPriority | 'all'>('all');
   const [userWorkOrders, setUserWorkOrders] = useState<WorkOrder[]>([]);
   const [userDrones, setUserDrones] = useState<{ id: string; name: string }[]>([]);
+  const [userSubsystems, setUserSubsystems] = useState<Subsystem[]>([]);
+  const [userECNs, setUserECNs] = useState<EngineeringChangeNotice[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<WorkOrder | null>(null);
 
   useEffect(() => {
     setUserWorkOrders(getUserWorkOrders());
     setUserDrones(getUserDrones());
+    setUserSubsystems(getUserSubsystems());
+    setUserECNs(getUserECNs());
   }, []);
+
+  const allSubsystems = useMemo(() => [...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...userSubsystems], [userSubsystems]);
+  const allECNs = useMemo(() => [...baseECNs, ...userECNs], [userECNs]);
 
   const allDrones = useMemo(() => [...baseDrones, ...userDrones].map(d => ({ id: d.id, name: d.name })), [userDrones]);
 
@@ -248,6 +257,8 @@ export default function WorkOrdersPage() {
         <AddWorkOrderModal
           existingWorkOrders={allWorkOrders}
           drones={allDrones}
+          subsystems={allSubsystems}
+          ecns={allECNs}
           onAdd={newWO => {
             setUserWorkOrders(prev => [...prev, newWO]);
             setShowAddModal(false);
