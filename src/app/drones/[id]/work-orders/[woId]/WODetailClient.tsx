@@ -6,7 +6,7 @@ import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
 import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
-import { ecns as baseECNs } from '@/lib/data/ecns';
+import { getAllECNs } from '@/lib/ecnStore';
 import { getSubsystemPath, getSubsystemTypeName } from '@/lib/subsystemTree';
 import Link from 'next/link';
 import {
@@ -24,7 +24,7 @@ import {
 import { Drone, WorkOrder, WorkOrderStatus, WorkOrderPriority, WorkOrderType, Task, TaskStatus, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserInventory, getUserSubsystems, getUserECNs } from '@/lib/userDataStore';
+import { getUserInventory, getUserSubsystems } from '@/lib/userDataStore';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
 import DriveLinkModal, { DriveAttachment, addToHistory } from '@/components/modals/DriveLinkModal';
 
@@ -77,7 +77,7 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
   const [ready, setReady] = useState(!!(staticWo && staticDrone));
   const [notFound, setNotFound] = useState(false);
   const [allSubsystems, setAllSubsystems] = useState<Subsystem[]>([...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS]);
-  const [allECNs, setAllECNs] = useState<EngineeringChangeNotice[]>(baseECNs);
+  const [allECNs, setAllECNs] = useState<EngineeringChangeNotice[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem(`workorder-edits-${woId}`);
@@ -96,7 +96,7 @@ export default function WODetailClient({ id, woId }: { id: string; woId: string 
     const userInv = getUserInventory();
     if (userInv.length > 0) setAllInventory([...baseInventoryItems, ...userInv]);
     setAllSubsystems([...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...getUserSubsystems()]);
-    setAllECNs([...baseECNs, ...getUserECNs()]);
+    setAllECNs(getAllECNs());
     const savedTasks = localStorage.getItem(`workorder-tasks-${woId}`);
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (!staticWo) {

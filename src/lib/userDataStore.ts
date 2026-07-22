@@ -1,4 +1,4 @@
-import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus, Subsystem, EngineeringChangeNotice, Vendor, VendorPart, PurchaseOrder } from '@/lib/types';
+import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus, Subsystem, EngineeringChangeNotice, Vendor, VendorPart, PurchaseOrder, ComplianceRequirement } from '@/lib/types';
 
 export function getUserDrones(): Drone[] {
   if (typeof window === 'undefined') return [];
@@ -55,6 +55,39 @@ export function getUserPurchaseOrders(): PurchaseOrder[] {
 }
 export function saveUserPurchaseOrders(items: PurchaseOrder[]) {
   localStorage.setItem('user-purchase-orders', JSON.stringify(items));
+}
+
+// ── Hidden ECN ids ────────────────────────────────────────────────────────────
+// "Removing" an ECN (whether seed or user-created) hides it everywhere it's
+// read from, rather than deleting seed data or forking storage per-consumer.
+
+export function getHiddenEcnIds(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try { return new Set(JSON.parse(localStorage.getItem('hidden-ecn-ids') || '[]')); } catch { return new Set(); }
+}
+export function saveHiddenEcnIds(ids: Set<string>) {
+  localStorage.setItem('hidden-ecn-ids', JSON.stringify([...ids]));
+}
+
+// ── Compliance requirements (fleet-wide, dashboard-managed) ───────────────────
+
+const DEFAULT_COMPLIANCE_REQUIREMENTS: ComplianceRequirement[] = [
+  { id: 'ect-52', name: 'ECT-52 (7075)' },
+  { id: 'ecn-199', name: 'ECN-199 (NDAA)' },
+  { id: 'faa-registration', name: 'FAA Registration' },
+];
+
+export function getComplianceRequirements(): ComplianceRequirement[] {
+  if (typeof window === 'undefined') return DEFAULT_COMPLIANCE_REQUIREMENTS;
+  try {
+    const saved = localStorage.getItem('compliance-requirements');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  localStorage.setItem('compliance-requirements', JSON.stringify(DEFAULT_COMPLIANCE_REQUIREMENTS));
+  return DEFAULT_COMPLIANCE_REQUIREMENTS;
+}
+export function saveComplianceRequirements(items: ComplianceRequirement[]) {
+  localStorage.setItem('compliance-requirements', JSON.stringify(items));
 }
 
 // ── Phase time tracking ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Plus, X, Trash2 } from 'lucide-react';
 import { EngineeringChangeNotice, ECNActionType } from '@/lib/types';
-import { getUserECNs, saveUserECNs } from '@/lib/userDataStore';
+import { addECN } from '@/lib/ecnStore';
 import { SUBSYSTEM_TYPES } from '@/lib/data/subsystems';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -51,8 +51,7 @@ export default function AddECNModal({ onAdd, onClose }: Props) {
       notes: notes.trim() || undefined,
     };
 
-    const existing = getUserECNs();
-    saveUserECNs([...existing, newECN]);
+    addECN(newECN);
     onAdd(newECN);
   };
 

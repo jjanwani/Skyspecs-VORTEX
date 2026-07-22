@@ -3,12 +3,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
-import { ecns as baseECNs } from '@/lib/data/ecns';
 import { drones as baseDrones } from '@/lib/data/drones';
 import { workOrders as baseWorkOrders } from '@/lib/data/workorders';
 import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
 import { EngineeringChangeNotice, WorkOrder, Drone, Subsystem } from '@/lib/types';
-import { getUserECNs, getUserDrones, getUserWorkOrders, saveUserWorkOrders, getUserSubsystems } from '@/lib/userDataStore';
+import { getUserDrones, getUserWorkOrders, saveUserWorkOrders, getUserSubsystems } from '@/lib/userDataStore';
+import { getAllECNs } from '@/lib/ecnStore';
 import { getECNActionColor, getECNActionLabel, getWorkOrderStatusColor, getWorkOrderStatusLabel, formatDate, cn } from '@/lib/utils';
 import { getSubsystemTypeName } from '@/lib/subsystemTree';
 import { ArrowLeft, FileWarning, Package, Plane, Zap, CheckCircle2, ClipboardList } from 'lucide-react';
@@ -24,8 +24,7 @@ export default function ECNDetailClient({ id }: { id: string }) {
   const [generated, setGenerated] = useState<WorkOrder[]>([]);
 
   useEffect(() => {
-    const userECNs = getUserECNs();
-    const found = [...baseECNs, ...userECNs].find(e => e.id === id) ?? null;
+    const found = getAllECNs().find(e => e.id === id) ?? null;
     setEcn(found);
     setAllDrones([...baseDrones, ...getUserDrones()]);
     setAllSubsystems([...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...getUserSubsystems()]);

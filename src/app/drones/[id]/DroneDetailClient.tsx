@@ -5,7 +5,7 @@ import Header from '@/components/layout/Header';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
-import { ecns } from '@/lib/data/ecns';
+import { getAllECNs } from '@/lib/ecnStore';
 import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
 import Link from 'next/link';
 import {
@@ -19,7 +19,7 @@ import {
   User, AlertTriangle, ClipboardList, ExternalLink,
   CheckCircle2, XCircle, HelpCircle, Package, Plus,
 } from 'lucide-react';
-import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder, Subsystem } from '@/lib/types';
+import { Drone, DroneStatus, PhaseEntry, DroneReturn, WorkOrder, Subsystem, EngineeringChangeNotice } from '@/lib/types';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -61,6 +61,7 @@ export default function DroneDetailClient({ id }: { id: string }) {
   const [userSubsystems, setUserSubsystems] = useState<Subsystem[]>([]);
   const [userInventory, setUserInventory] = useState<typeof baseInventoryItems>([]);
   const [addSubsystemParentId, setAddSubsystemParentId] = useState<string | null | undefined>(undefined);
+  const [ecns, setEcns] = useState<EngineeringChangeNotice[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem(`drone-edits-${id}`);
@@ -75,6 +76,7 @@ export default function DroneDetailClient({ id }: { id: string }) {
     setUserWOs(storedWOs);
     setUserSubsystems(getUserSubsystems());
     setUserInventory(getUserInventory());
+    setEcns(getAllECNs());
     setReady(true);
   }, [id]);
 

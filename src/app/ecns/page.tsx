@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
-import { ecns as baseECNs } from '@/lib/data/ecns';
 import { EngineeringChangeNotice } from '@/lib/types';
-import { getUserECNs } from '@/lib/userDataStore';
+import { getAllECNs } from '@/lib/ecnStore';
 import { getECNActionColor, getECNActionLabel, formatDate, cn } from '@/lib/utils';
 import { getSubsystemTypeName } from '@/lib/subsystemTree';
 import { FileWarning, Search, Plus } from 'lucide-react';
@@ -14,13 +13,12 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export default function ECNsPage() {
   const { can } = useAuth();
-  const [userECNs, setUserECNs] = useState<EngineeringChangeNotice[]>([]);
+  const [allECNs, setAllECNs] = useState<EngineeringChangeNotice[]>([]);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  useEffect(() => { setUserECNs(getUserECNs()); }, []);
+  useEffect(() => { setAllECNs(getAllECNs()); }, []);
 
-  const allECNs = [...baseECNs, ...userECNs];
   const filtered = allECNs.filter(e =>
     !search ||
     e.id.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,7 +95,7 @@ export default function ECNsPage() {
 
       {showAddModal && (
         <AddECNModal
-          onAdd={newECN => { setUserECNs(prev => [...prev, newECN]); setShowAddModal(false); }}
+          onAdd={newECN => { setAllECNs(prev => [...prev, newECN]); setShowAddModal(false); }}
           onClose={() => setShowAddModal(false)}
         />
       )}

@@ -1,48 +1,34 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { Suspense, useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { workOrders as baseWorkOrders } from '@/lib/data/workorders';
-import { drones as baseDrones } from '@/lib/data/drones';
-import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
-import { ecns as baseECNs } from '@/lib/data/ecns';
-import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority, Subsystem, EngineeringChangeNotice } from '@/lib/types';
+import { WorkOrder, WorkOrderStatus, WorkOrderType, WorkOrderPriority } from '@/lib/types';
 import {
   getWorkOrderStatusColor, getWorkOrderStatusLabel,
   getWorkOrderTypeColor, getWorkOrderTypeLabel,
-  getPriorityColor, getSFSyncColor, getSFSyncDot, formatDate, cn
+  getPriorityColor, getSFSyncColor, getSFSyncDot, cn
 } from '@/lib/utils';
 import Link from 'next/link';
 import { Search, ClipboardList, Clock, User, ExternalLink, Filter, Plus, Copy } from 'lucide-react';
-import AddWorkOrderModal from '@/components/modals/AddWorkOrderModal';
 import DuplicateWorkOrderModal from '@/components/modals/DuplicateWorkOrderModal';
-import { getUserWorkOrders, getUserDrones, getUserSubsystems, getUserECNs } from '@/lib/userDataStore';
+import { getUserWorkOrders } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function WorkOrdersPage() {
+function WorkOrdersContent() {
   const { can } = useAuth();
-  const [search, setSearch] = useState('');
+  const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | 'all'>('all');
   const [typeFilter, setTypeFilter] = useState<WorkOrderType | 'all'>('all');
   const [priorityFilter, setPriorityFilter] = useState<WorkOrderPriority | 'all'>('all');
   const [userWorkOrders, setUserWorkOrders] = useState<WorkOrder[]>([]);
-  const [userDrones, setUserDrones] = useState<{ id: string; name: string }[]>([]);
-  const [userSubsystems, setUserSubsystems] = useState<Subsystem[]>([]);
-  const [userECNs, setUserECNs] = useState<EngineeringChangeNotice[]>([]);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [duplicateSource, setDuplicateSource] = useState<WorkOrder | null>(null);
 
   useEffect(() => {
     setUserWorkOrders(getUserWorkOrders());
-    setUserDrones(getUserDrones());
-    setUserSubsystems(getUserSubsystems());
-    setUserECNs(getUserECNs());
   }, []);
-
-  const allSubsystems = useMemo(() => [...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...userSubsystems], [userSubsystems]);
-  const allECNs = useMemo(() => [...baseECNs, ...userECNs], [userECNs]);
-
-  const allDrones = useMemo(() => [...baseDrones, ...userDrones].map(d => ({ id: d.id, name: d.name })), [userDrones]);
 
   const allWorkOrders = [...baseWorkOrders, ...userWorkOrders];
 
@@ -90,12 +76,13 @@ export default function WorkOrdersPage() {
               <span className="text-xs text-gray-400 font-medium">Filters</span>
             </div>
             {can('add_work_orders') && (
-              <button
-                onClick={() => setShowAddModal(true)}
+              <Link
+                href="/work-orders/new"
+                target="_blank"
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-medium text-white transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Add Work Order
-              </button>
+              </Link>
             )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
@@ -253,19 +240,6 @@ export default function WorkOrdersPage() {
         <p className="text-xs text-gray-600 text-right">{sortedFiltered.length} of {allWorkOrders.length} work orders</p>
       </div>
 
-      {showAddModal && (
-        <AddWorkOrderModal
-          existingWorkOrders={allWorkOrders}
-          drones={allDrones}
-          subsystems={allSubsystems}
-          ecns={allECNs}
-          onAdd={newWO => {
-            setUserWorkOrders(prev => [...prev, newWO]);
-            setShowAddModal(false);
-          }}
-          onClose={() => setShowAddModal(false)}
-        />
-      )}
       {duplicateSource && (
         <DuplicateWorkOrderModal
           sourceWO={duplicateSource}
@@ -277,5 +251,13 @@ export default function WorkOrdersPage() {
         />
       )}
     </div>
+  );
+}
+
+export default function WorkOrdersPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-gray-500 text-sm">Loading...</div>}>
+      <WorkOrdersContent />
+    </Suspense>
   );
 }

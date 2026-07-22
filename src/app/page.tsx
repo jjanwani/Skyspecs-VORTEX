@@ -1,5 +1,7 @@
 import Header from '@/components/layout/Header';
 import LeadTimeAlerts from '@/components/LeadTimeAlerts';
+import ComplianceRequirementsCard from '@/components/dashboard/ComplianceRequirementsCard';
+import ActiveECNsCard from '@/components/dashboard/ActiveECNsCard';
 import { drones } from '@/lib/data/drones';
 import { workOrders } from '@/lib/data/workorders';
 import { inventoryItems } from '@/lib/data/inventory';
@@ -249,6 +251,12 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Compliance & ECN management */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ComplianceRequirementsCard />
+          <ActiveECNsCard />
         </div>
 
         {/* Fleet Compliance */}

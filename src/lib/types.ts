@@ -302,6 +302,11 @@ export interface SubsetHistoryEvent {
   notes?: string;
 }
 
+export interface ComplianceRequirement {
+  id: string;
+  name: string;
+}
+
 export interface KPIData {
   totalDrones: number;
   dronesDeployed: number;
