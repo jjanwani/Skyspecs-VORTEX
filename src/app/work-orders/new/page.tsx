@@ -23,7 +23,7 @@ function blankForm(type: WorkOrderType) {
   return {
     title: '', type, priority: 'medium' as WorkOrderPriority, status: 'open' as WorkOrderStatus,
     assigned: '', estimatedHours: 1, description: '', ernReference: '', notes: '',
-    subsystemId: '', ecnId: '',
+    subsystemTypeId: '', ecnId: '',
     parts: [] as WorkOrder['parts'],
   };
 }
@@ -39,7 +39,7 @@ function templateToForm(wo: WorkOrder) {
     description: wo.description,
     ernReference: wo.ernReference ?? '',
     notes: wo.notes ?? '',
-    subsystemId: '',
+    subsystemTypeId: '',
     ecnId: wo.ecnId ?? '',
     parts: wo.parts ? wo.parts.map(p => ({ ...p })) : [],
   };
@@ -121,8 +121,23 @@ export default function NewWorkOrderPage() {
   const set = <K extends keyof ReturnType<typeof blankForm>>(key: K, val: ReturnType<typeof blankForm>[K]) =>
     setForm(prev => ({ ...prev, [key]: val }));
 
-  const singleSelectedDroneId = selectedDrones.size === 1 ? [...selectedDrones][0] : null;
-  const droneSubsystems = singleSelectedDroneId ? allSubsystems.filter(s => s.droneId === singleSelectedDroneId) : [];
+  // Subsystem types present on every currently-selected drone (the actual Subsystem
+  // instance differs per drone, but the type — e.g. "Gimbals" — can be shared).
+  const sharedSubsystemTypeIds = useMemo(() => {
+    if (selectedDrones.size === 0) return [];
+    const perDroneTypeSets = [...selectedDrones].map(droneId =>
+      new Set(allSubsystems.filter(s => s.droneId === droneId).map(s => s.typeId))
+    );
+    const [first, ...rest] = perDroneTypeSets;
+    return [...first].filter(typeId => rest.every(set => set.has(typeId)));
+  }, [selectedDrones, allSubsystems]);
+
+  useEffect(() => {
+    if (form.subsystemTypeId && !sharedSubsystemTypeIds.includes(form.subsystemTypeId)) {
+      set('subsystemTypeId', '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedSubsystemTypeIds]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,30 +148,35 @@ export default function NewWorkOrderPage() {
       ? [...selectedDrones].map(id => allDrones.find(d => d.id === id)!).filter(Boolean)
       : [null];
 
-    const newWOs: WorkOrder[] = targets.map((drone, i) => ({
-      id: `WO-U-${(Date.now() + i).toString().slice(-6)}`,
-      droneId: drone?.id ?? 'unassigned',
-      droneName: drone?.name ?? 'Unassigned',
-      title: form.title.trim(),
-      description: form.description.trim(),
-      type: form.type,
-      priority: form.priority,
-      status: form.status,
-      assignedTech: form.assigned.trim(),
-      createdAt: now,
-      updatedAt: now,
-      estimatedHours: form.estimatedHours || 0,
-      previousOccurrences: 0,
-      completionHistory: [],
-      ernReference: form.ernReference.trim() || undefined,
-      subsystemId: targets.length === 1 ? (form.subsystemId || undefined) : undefined,
-      ecnId: form.ecnId || undefined,
-      notes: form.notes.trim() || undefined,
-      parts: form.parts && form.parts.length > 0 ? form.parts : undefined,
-      source: 'platform',
-      sfSyncStatus: 'pending',
-      sfObject: 'WorkOrder',
-    }));
+    const newWOs: WorkOrder[] = targets.map((drone, i) => {
+      const subsystemId = form.subsystemTypeId && drone
+        ? allSubsystems.find(s => s.droneId === drone.id && s.typeId === form.subsystemTypeId)?.id
+        : undefined;
+      return {
+        id: `WO-U-${(Date.now() + i).toString().slice(-6)}`,
+        droneId: drone?.id ?? 'unassigned',
+        droneName: drone?.name ?? 'Unassigned',
+        title: form.title.trim(),
+        description: form.description.trim(),
+        type: form.type,
+        priority: form.priority,
+        status: form.status,
+        assignedTech: form.assigned.trim(),
+        createdAt: now,
+        updatedAt: now,
+        estimatedHours: form.estimatedHours || 0,
+        previousOccurrences: 0,
+        completionHistory: [],
+        ernReference: form.ernReference.trim() || undefined,
+        subsystemId,
+        ecnId: form.ecnId || undefined,
+        notes: form.notes.trim() || undefined,
+        parts: form.parts && form.parts.length > 0 ? form.parts : undefined,
+        source: 'platform',
+        sfSyncStatus: 'pending',
+        sfObject: 'WorkOrder',
+      };
+    });
 
     const existing = getUserWorkOrders();
     saveUserWorkOrders([...existing, ...newWOs]);
@@ -326,19 +346,24 @@ export default function NewWorkOrderPage() {
 
               <div>
                 <label className="block text-xs text-gray-400 mb-1">
-                  Subsystem <span className="text-gray-600 font-normal">(optional{singleSelectedDroneId ? '' : ' — select exactly one drone below'})</span>
+                  Subsystem <span className="text-gray-600 font-normal">
+                    (optional{selectedDrones.size === 0 ? ' — select drones below' : sharedSubsystemTypeIds.length === 0 ? ' — no subsystem shared by all selected drones' : ''})
+                  </span>
                 </label>
                 <select
-                  value={form.subsystemId}
-                  onChange={e => set('subsystemId', e.target.value)}
-                  disabled={!singleSelectedDroneId}
+                  value={form.subsystemTypeId}
+                  onChange={e => set('subsystemTypeId', e.target.value)}
+                  disabled={sharedSubsystemTypeIds.length === 0}
                   className={`${selectCls} disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   <option value="">— None —</option>
-                  {droneSubsystems.map(s => (
-                    <option key={s.id} value={s.id}>{getSubsystemTypeName(s.typeId)} ({s.id})</option>
+                  {sharedSubsystemTypeIds.map(typeId => (
+                    <option key={typeId} value={typeId}>{getSubsystemTypeName(typeId)}</option>
                   ))}
                 </select>
+                {selectedDrones.size > 1 && sharedSubsystemTypeIds.length > 0 && (
+                  <p className="text-xs text-gray-600 mt-1">Shared by all {selectedDrones.size} selected drones — each work order will link to that drone&apos;s own instance.</p>
+                )}
               </div>
 
               <div>
