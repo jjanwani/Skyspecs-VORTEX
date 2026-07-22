@@ -2,10 +2,28 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronDown, Plus, Package, Wrench } from 'lucide-react';
+import {
+  ChevronRight, ChevronDown, Plus, Package, Wrench,
+  Plane, Cpu, Box, Settings, type LucideIcon,
+} from 'lucide-react';
 import { Subsystem, WorkOrder, EngineeringChangeNotice } from '@/lib/types';
-import { buildSubsystemTree, getSubsystemTypeName, getSubsystemTypeIcon, SubsystemNode } from '@/lib/subsystemTree';
+import { buildSubsystemTree, getSubsystemTypeName, SubsystemNode } from '@/lib/subsystemTree';
 import { cn, getWorkOrderStatusColor, getWorkOrderStatusLabel } from '@/lib/utils';
+
+const TYPE_ICONS: Record<string, LucideIcon> = {
+  airframe: Plane,
+  corestack: Cpu,
+  fuselage: Box,
+  payload_bay: Package,
+  gimbal: Settings,
+  mounting_hardware: Wrench,
+  custom: Wrench,
+};
+
+function SubsystemIcon({ typeId, isPart }: { typeId: string; isPart: boolean }) {
+  const Icon = TYPE_ICONS[typeId] ?? (isPart ? Wrench : Box);
+  return <Icon className="w-3.5 h-3.5 text-gray-500" />;
+}
 
 interface Props {
   droneId: string;
@@ -113,7 +131,7 @@ function TreeRow({
         ) : (
           <span className="w-3.5 h-3.5 flex-shrink-0" />
         )}
-        <span className="flex-shrink-0">{isPart ? <Wrench className="w-3.5 h-3.5 text-gray-500" /> : getSubsystemTypeIcon(node.typeId)}</span>
+        <span className="flex-shrink-0"><SubsystemIcon typeId={node.typeId} isPart={isPart} /></span>
         <span className="text-sm text-white font-medium truncate">{getSubsystemTypeName(node.typeId)}</span>
         <span className="text-xs text-gray-500 font-mono truncate">{node.id}</span>
         {node.quantity !== undefined && (

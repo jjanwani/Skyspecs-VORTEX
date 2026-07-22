@@ -1,4 +1,4 @@
-import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus, Subsystem, EngineeringChangeNotice } from '@/lib/types';
+import { Drone, WorkOrder, InventoryItem, PhaseEntry, DroneReturn, DroneStatus, Subsystem, EngineeringChangeNotice, Vendor, VendorPart, PurchaseOrder } from '@/lib/types';
 
 export function getUserDrones(): Drone[] {
   if (typeof window === 'undefined') return [];
@@ -34,6 +34,27 @@ export function getUserECNs(): EngineeringChangeNotice[] {
 }
 export function saveUserECNs(items: EngineeringChangeNotice[]) {
   localStorage.setItem('user-ecns', JSON.stringify(items));
+}
+export function getUserVendors(): Vendor[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('user-vendors') || '[]'); } catch { return []; }
+}
+export function saveUserVendors(items: Vendor[]) {
+  localStorage.setItem('user-vendors', JSON.stringify(items));
+}
+export function getUserVendorParts(): VendorPart[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('user-vendor-parts') || '[]'); } catch { return []; }
+}
+export function saveUserVendorParts(items: VendorPart[]) {
+  localStorage.setItem('user-vendor-parts', JSON.stringify(items));
+}
+export function getUserPurchaseOrders(): PurchaseOrder[] {
+  if (typeof window === 'undefined') return [];
+  try { return JSON.parse(localStorage.getItem('user-purchase-orders') || '[]'); } catch { return []; }
+}
+export function saveUserPurchaseOrders(items: PurchaseOrder[]) {
+  localStorage.setItem('user-purchase-orders', JSON.stringify(items));
 }
 
 // ── Phase time tracking ──────────────────────────────────────────────────────

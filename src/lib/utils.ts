@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { DroneStatus, WorkOrderStatus, WorkOrderType, WorkOrderPriority, PIPOStatus, SFSyncStatus, ECNActionType } from '@/lib/types';
+import { DroneStatus, WorkOrderStatus, WorkOrderType, WorkOrderPriority, PIPOStatus, SFSyncStatus, ECNActionType, PurchaseOrderStatus } from '@/lib/types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -132,6 +132,26 @@ export function getECNActionColor(action: ECNActionType): string {
     replace: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   };
   return colors[action];
+}
+
+export function getPurchaseOrderStatusLabel(status: PurchaseOrderStatus): string {
+  const labels: Record<PurchaseOrderStatus, string> = {
+    in_progress: 'In Progress',
+    shipped: 'Shipped',
+    delivered: 'Delivered',
+    returned: 'Returned',
+  };
+  return labels[status];
+}
+
+export function getPurchaseOrderStatusColor(status: PurchaseOrderStatus): string {
+  const colors: Record<PurchaseOrderStatus, string> = {
+    in_progress: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    shipped: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    delivered: 'bg-green-500/20 text-green-400 border-green-500/30',
+    returned: 'bg-red-500/20 text-red-400 border-red-500/30',
+  };
+  return colors[status];
 }
 
 export function formatDate(dateString: string): string {

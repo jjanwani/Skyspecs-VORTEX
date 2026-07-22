@@ -10,47 +10,40 @@ export const SUBSYSTEM_TYPES: SubsystemType[] = [
   {
     id: 'airframe',
     name: 'Airframe',
-    icon: '🛩',
     fields: [],
   },
   {
     id: 'corestack',
     name: 'Corestack',
-    icon: '🖥',
     parentTypeId: 'airframe',
     fields: [],
   },
   {
     id: 'fuselage',
     name: 'Fuselage',
-    icon: '🔲',
     parentTypeId: 'airframe',
     fields: [],
   },
   {
     id: 'payload_bay',
     name: 'Payload Bay',
-    icon: '📦',
     parentTypeId: 'airframe',
     fields: [],
   },
   {
     id: 'mounting_hardware',
     name: 'Mounting Hardware',
-    icon: '🔩',
     parentTypeId: 'gimbal',
     fields: [],
   },
   {
     id: 'custom',
     name: 'Custom Part',
-    icon: '🔧',
     fields: [],
   },
   {
     id: 'gimbal',
     name: 'Gimbals',
-    icon: '⚙',
     parentTypeId: 'payload_bay',
     fields: [
       {

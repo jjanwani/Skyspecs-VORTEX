@@ -3,15 +3,18 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import Header from '@/components/layout/Header';
 import { inventoryItems as baseInventoryItems } from '@/lib/data/inventory';
-import { InventoryCategory, InventoryItem, PIPOStatus } from '@/lib/types';
+import { drones as baseDrones } from '@/lib/data/drones';
+import { SEED_GIMBALS, SEED_ASSET_SUBSYSTEMS } from '@/lib/data/subsystems';
+import { InventoryCategory, InventoryItem, PIPOStatus, Subsystem, Drone } from '@/lib/types';
 import { getPIPOStatusColor, getPIPOStatusLabel, formatDate, cn } from '@/lib/utils';
 import {
   Search, Package, AlertTriangle, Filter, ChevronUp, ChevronDown,
-  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check, Plus, Upload, ImageIcon,
+  ArrowUpDown, TrendingDown, ShoppingCart, CheckCircle2, Pencil, ExternalLink, X, Check, Plus, Upload, ImageIcon, Archive,
 } from 'lucide-react';
 import InlineEdit, { InlineToggle } from '@/components/InlineEdit';
 import AddInventoryModal from '@/components/modals/AddInventoryModal';
-import { getUserInventory } from '@/lib/userDataStore';
+import InventoryAdditionalInfo from '@/components/InventoryAdditionalInfo';
+import { getUserInventory, getUserSubsystems, getUserDrones } from '@/lib/userDataStore';
 import { useAuth } from '@/contexts/AuthContext';
 
 type SortKey = 'name' | 'category' | 'currentCount' | 'minQty' | 'usageRatePerWeek' | 'discrepancy';
@@ -47,7 +50,10 @@ function StockBar({ current, min, max }: { current: number; min: number; max: nu
   );
 }
 
-type ItemOverrides = Partial<Pick<InventoryItem, 'currentCount' | 'pipoStatus' | 'incoming' | 'location' | 'notes' | 'repurchaseFlag'>>;
+type ItemOverrides = Partial<Pick<InventoryItem,
+  'currentCount' | 'pipoStatus' | 'incoming' | 'location' | 'notes' | 'repurchaseFlag' |
+  'archived' | 'quotedLeadTimeDays' | 'actualLeadTimeDays'
+>>;
 
 function calcWeeklyUsage(item: InventoryItem): number {
   const daysSince = (Date.now() - new Date(item.lastAudit).getTime()) / 86400000;
@@ -74,6 +80,9 @@ export default function InventoryPage() {
   const [userInventory, setUserInventory] = useState<InventoryItem[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [itemImages, setItemImages] = useState<Record<string, string>>({});
+  const [showArchived, setShowArchived] = useState(false);
+  const [userSubsystems, setUserSubsystems] = useState<Subsystem[]>([]);
+  const [userDrones, setUserDrones] = useState<Drone[]>([]);
 
   useEffect(() => {
     const savedMin = localStorage.getItem('inventory-min-qty');
@@ -85,7 +94,12 @@ export default function InventoryPage() {
     const savedImages = localStorage.getItem('inventory-images');
     if (savedImages) setItemImages(JSON.parse(savedImages));
     setUserInventory(getUserInventory());
+    setUserSubsystems(getUserSubsystems());
+    setUserDrones(getUserDrones());
   }, []);
+
+  const allSubsystems = useMemo(() => [...SEED_GIMBALS, ...SEED_ASSET_SUBSYSTEMS, ...userSubsystems], [userSubsystems]);
+  const allDrones = useMemo(() => [...baseDrones, ...userDrones], [userDrones]);
 
   const handleImageUpload = (itemId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -164,7 +178,8 @@ export default function InventoryPage() {
           alertFilter === 'low' ? item.currentCount < item.minQty :
             alertFilter === 'repurchase' ? item.repurchaseFlag :
               item.pipoStatus === 'on_order';
-      return matchSearch && matchCat && matchPipo && matchAlert;
+      const matchArchived = showArchived ? true : !item.archived;
+      return matchSearch && matchCat && matchPipo && matchAlert && matchArchived;
     });
 
     items.sort((a, b) => {
@@ -178,7 +193,9 @@ export default function InventoryPage() {
     });
     return items;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter, pipoFilter, alertFilter, sortKey, sortDir, effectiveItems]);
+  }, [search, categoryFilter, pipoFilter, alertFilter, showArchived, sortKey, sortDir, effectiveItems]);
+
+  const archivedCount = effectiveItems.filter(i => i.archived).length;
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -277,6 +294,14 @@ export default function InventoryPage() {
               <option value="on_order">On Order</option>
               <option value="depleted">Depleted</option>
             </select>
+            <button
+              onClick={() => setShowArchived(a => !a)}
+              className={cn('flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap',
+                showArchived ? 'bg-blue-600/20 border-blue-500/40 text-blue-400' : 'border-gray-700 text-gray-400 hover:text-white'
+              )}
+            >
+              <Archive className="w-3.5 h-3.5" /> {showArchived ? 'Hide' : 'Show'} Archived {archivedCount > 0 && `(${archivedCount})`}
+            </button>
           </div>
 
           {/* Category Tabs */}
@@ -504,6 +529,17 @@ export default function InventoryPage() {
                                   disabled={!can('edit_inventory_status')}
                                 />
                               </div>
+                              <div onClick={e => e.stopPropagation()}>
+                                <p className="text-gray-500 mb-1">Archived</p>
+                                <InlineToggle
+                                  value={!!item.archived}
+                                  onToggle={() => updateItemField(item.id, 'archived', !item.archived)}
+                                  trueLabel="Archived"
+                                  falseLabel="Active"
+                                  trueClass="bg-gray-600/30 text-gray-300 border-gray-500/40"
+                                  disabled={!can('edit_inventory_status')}
+                                />
+                              </div>
                               {/* Purchase Link */}
                               <div className="col-span-2" onClick={e => e.stopPropagation()}>
                                 <p className="text-gray-500 mb-1">Purchase Link</p>
@@ -593,6 +629,13 @@ export default function InventoryPage() {
                                   disabled={!can('edit_inventory_notes')}
                                 />
                               </div>
+                              <InventoryAdditionalInfo
+                                item={item}
+                                allSubsystems={allSubsystems}
+                                drones={allDrones}
+                                canEditProcurement={can('edit_inventory_notes')}
+                                onUpdateField={(field, value) => updateItemField(item.id, field, value)}
+                              />
                             </div>
                           </td>
                         </tr>

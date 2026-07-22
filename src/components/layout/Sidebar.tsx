@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, Cpu, FileWarning, ChevronRight, ChevronLeft, Menu, Settings, LogOut } from 'lucide-react';
+import { LayoutDashboard, Plane, Package, ClipboardList, BookOpen, Cpu, FileWarning, Truck, ChevronRight, ChevronLeft, Menu, Settings, LogOut } from 'lucide-react';
 
 function DroneIcon({ className }: { className?: string }) {
   return (
@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { href: '/work-orders', label: 'Work Orders', icon: ClipboardList },
   { href: '/ecns', label: 'ECNs', icon: FileWarning },
   { href: '/inventory', label: 'Inventory', icon: Package },
+  { href: '/vendors', label: 'Vendors', icon: Truck },
   { href: '/subsystems', label: 'Subsystems', icon: Cpu },
   { href: '/information-hub', label: 'Info Hub', icon: BookOpen },
 ];

@@ -154,6 +154,48 @@ export interface InventoryItem extends SFSyncMeta {
   repurchaseFlag: boolean;
   repurchaseCount: number;
   purchaseLink?: string;
+  archived?: boolean;
+  quotedLeadTimeDays?: number;   // procurement: lead time quoted by the vendor
+  actualLeadTimeDays?: number;   // procurement: lead time actually experienced
+}
+
+// ── Vendors & procurement ────────────────────────────────────────────────────
+
+export interface Vendor {
+  id: string;
+  name: string;
+  location?: string;
+  redFlag: boolean;   // manual flag
+  notes?: string;
+}
+
+export interface VendorPart {
+  id: string;
+  vendorId: string;
+  inventoryItemId: string;   // the part this vendor supplies
+  sku?: string;
+  unitCost?: number;         // standard cost per piece from this vendor
+  leadTimeDays?: number;     // standard lead time from this vendor
+  expediteCostPerPiece?: number;
+  expediteLeadTimeDays?: number;
+  alternateVendorSourceLink?: string;   // link to an alternate vendor's site
+  alternateVendorPartLink?: string;     // link to the alternate part listing
+}
+
+export type PurchaseOrderStatus = 'in_progress' | 'shipped' | 'delivered' | 'returned';
+
+export interface PurchaseOrder {
+  id: string;
+  inventoryItemId: string;
+  vendorId?: string;
+  vendorName: string;
+  quote?: number;
+  quantity: number;
+  estimatedDeliveryDate?: string;
+  actualDeliveryDate?: string;
+  status: PurchaseOrderStatus;
+  notes?: string;
+  createdAt: string;
 }
 
 export interface SubsystemField {
@@ -166,7 +208,6 @@ export interface SubsystemField {
 export interface SubsystemType {
   id: string;
   name: string;
-  icon: string;         // emoji or short label for display
   fields: SubsystemField[];
   parentTypeId?: string; // parent SubsystemType in the catalog taxonomy (undefined = sits directly under the drone)
 }

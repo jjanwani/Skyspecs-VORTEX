@@ -13,10 +13,6 @@ export function getSubsystemTypeName(typeId: string): string {
   return getSubsystemType(typeId)?.name ?? typeId;
 }
 
-export function getSubsystemTypeIcon(typeId: string): string {
-  return getSubsystemType(typeId)?.icon ?? '•';
-}
-
 /** Builds a parent -> children tree from a flat list of Subsystem instances belonging to one drone. */
 export function buildSubsystemTree(nodes: Subsystem[]): SubsystemNode[] {
   const byId = new Map<string, SubsystemNode>(nodes.map(n => [n.id, { ...n, children: [] }]));
